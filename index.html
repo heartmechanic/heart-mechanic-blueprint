@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Heart Mechanic Blueprint</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar" aria-label="Main navigation">
+        <button class="brand" data-route="welcome" aria-label="The Heart Mechanic Blueprint home">
+          <span class="brand-mark">HM</span>
+          <span>
+            <strong>The Heart Mechanic</strong>
+            <small>Blueprint</small>
+          </span>
+        </button>
+        <nav class="nav-pills" aria-label="App sections">
+          <button data-route="intake">Contacts</button>
+          <button data-route="sort">Sort</button>
+          <button data-route="map">Kingdom Map</button>
+          <button data-route="insights">Insights</button>
+        </nav>
+      </header>
+
+      <main>
+        <section id="welcome" class="view welcome-view active" aria-labelledby="welcome-title">
+          <div class="hero-copy">
+            <p class="eyebrow">A premium relationship architecture tool</p>
+            <h1 id="welcome-title">Your phone contains hundreds of relationships. How many still belong in your Kingdom?</h1>
+            <p class="hero-subtitle">Map your relational world. See who nourishes you, who drains you, and where each person truly belongs.</p>
+            <div class="hero-actions">
+              <button class="primary-action" data-route="intake">Begin Mapping</button>
+              <button class="secondary-action" data-load-samples>Use Demo Contacts</button>
+            </div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="kingdom-rings">
+              <span class="ring ring-1"></span>
+              <span class="ring ring-2"></span>
+              <span class="ring ring-3"></span>
+              <span class="ring ring-4"></span>
+              <span class="node n1"></span>
+              <span class="node n2"></span>
+              <span class="node n3"></span>
+              <span class="node n4"></span>
+              <span class="node n5"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="intake" class="view" aria-labelledby="intake-title">
+          <div class="section-heading">
+            <p class="eyebrow">Contact intake</p>
+            <h2 id="intake-title">Start with the people already orbiting your life.</h2>
+            <p>Add people manually, upload contacts from CSV or iPhone vCard, or use the demo set to test the full sorting flow.</p>
+          </div>
+
+          <div class="intake-grid">
+            <form id="contact-form" class="panel form-panel">
+              <div class="panel-title">
+                <h3>Add a contact</h3>
+                <p>Keep it light. You can refine their profile later.</p>
+              </div>
+              <label>
+                <span>Name</span>
+                <input id="name" required autocomplete="name" placeholder="Amara Stone" />
+              </label>
+              <div class="two-column">
+                <label>
+                  <span>Relationship type</span>
+                  <select id="relationship">
+                    <option>Friend</option>
+                    <option>Family</option>
+                    <option>Partner</option>
+                    <option>Colleague</option>
+                    <option>Mentor</option>
+                    <option>Former relationship</option>
+                    <option>Community</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Last interaction</span>
+                  <input id="lastInteraction" type="date" />
+                </label>
+              </div>
+              <label>
+                <span>Notes</span>
+                <textarea id="notes" rows="4" placeholder="How does this relationship feel right now?"></textarea>
+              </label>
+              <div class="form-actions">
+                <button class="primary-action" type="submit">Add Contact</button>
+                <button class="secondary-action" type="button" data-load-samples>Load Demo Contacts</button>
+              </div>
+            </form>
+
+            <aside class="panel import-panel">
+              <div class="panel-title">
+                <h3>Import contacts</h3>
+                <p>Upload Contacts</p>
+                <p>Supports CSV and iPhone vCard (.vcf) files.</p>
+              </div>
+              <label class="upload-target">
+                <input id="contact-file-input" type="file" accept=".csv,.vcf,text/csv,text/vcard,text/x-vcard" />
+                <span>Choose contact file</span>
+                <small>CSV or iPhone vCard export</small>
+              </label>
+              <p class="privacy-note">Your contacts are used only to create your personal Kingdom map. This prototype stores them locally in your browser unless backend storage is added later.</p>
+              <div class="mini-stat-grid">
+                <div>
+                  <strong id="stat-total">0</strong>
+                  <span>Total people</span>
+                </div>
+                <div>
+                  <strong id="stat-unsorted">0</strong>
+                  <span>Waiting to sort</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <div class="panel contacts-panel">
+            <div class="panel-title row-title">
+              <div>
+                <h3>People</h3>
+                <p>Add, edit or remove anyone before mapping.</p>
+              </div>
+              <button class="text-button" data-clear-data>Reset Demo</button>
+            </div>
+            <div id="contacts-list" class="contacts-list"></div>
+          </div>
+        </section>
+
+        <section id="sort" class="view" aria-labelledby="sort-title">
+          <div class="sort-layout">
+            <div class="section-heading compact">
+              <p class="eyebrow">Swipe sorting</p>
+              <h2 id="sort-title">One person at a time. Notice the truth before the habit answers.</h2>
+              <p>Use the buttons, keyboard arrows, or drag the card left, right or upward.</p>
+            </div>
+            <div class="sort-stage">
+              <div class="sort-hints" aria-hidden="true">
+                <span>Outside</span>
+                <span>The Hold</span>
+                <span>Kingdom</span>
+              </div>
+              <div id="swipe-card" class="swipe-card"></div>
+              <div class="decision-buttons">
+                <button class="outside-btn" data-decision="outside">Outside Kingdom</button>
+                <button class="hold-btn" data-decision="hold">The Hold</button>
+                <button class="kingdom-btn" data-decision="kingdom">In My Kingdom</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="map" class="view" aria-labelledby="map-title">
+          <div class="section-heading">
+            <p class="eyebrow">Visual Kingdom Map</p>
+            <h2 id="map-title">A living architecture of access, care and distance.</h2>
+            <p>Drag people between zones as the relationship becomes clearer.</p>
+          </div>
+          <div class="kingdom-status">
+            <div><strong id="inside-count">0</strong><span>Inside active Kingdom</span></div>
+            <div><strong id="hold-count">0</strong><span>In reflection</span></div>
+            <div><strong id="outside-count">0</strong><span>Outside Kingdom</span></div>
+          </div>
+          <div id="zone-grid" class="zone-grid"></div>
+        </section>
+
+        <section id="insights" class="view" aria-labelledby="insights-title">
+          <div class="section-heading">
+            <p class="eyebrow">Insights</p>
+            <h2 id="insights-title">Your relational pattern, made visible.</h2>
+            <p id="summary-statement">Start mapping to see your current architecture.</p>
+          </div>
+          <div class="insights-grid">
+            <div class="panel metric"><strong id="metric-reviewed">0</strong><span>Total contacts reviewed</span></div>
+            <div class="panel metric"><strong id="metric-inside">0</strong><span>Inside the Kingdom</span></div>
+            <div class="panel metric"><strong id="metric-hold">0</strong><span>In The Hold</span></div>
+            <div class="panel metric"><strong id="metric-outside">0</strong><span>Outside Kingdom</span></div>
+          </div>
+          <div class="insights-detail">
+            <div class="panel">
+              <div class="panel-title">
+                <h3>Zone distribution</h3>
+                <p>Where your mapped relationships currently sit.</p>
+              </div>
+              <div id="distribution" class="distribution"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-title">
+                <h3>Recent changes</h3>
+                <p>The latest movements in your Kingdom.</p>
+              </div>
+              <div id="activity-feed" class="activity-feed"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="zone-dialog" class="modal">
+      <form method="dialog">
+        <div class="modal-header">
+          <p class="eyebrow">Kingdom placement</p>
+          <h3 id="zone-dialog-title">Where does this person belong?</h3>
+        </div>
+        <div id="zone-options" class="zone-options"></div>
+      </form>
+    </dialog>
+
+    <dialog id="profile-dialog" class="modal profile-modal">
+      <form method="dialog">
+        <div class="modal-header row-title">
+          <div>
+            <p class="eyebrow">Person profile</p>
+            <h3 id="profile-title">Profile</h3>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close profile">x</button>
+        </div>
+        <div id="profile-content"></div>
+      </form>
+    </dialog>
+
+    <dialog id="import-preview-dialog" class="modal import-preview-modal">
+      <form method="dialog">
+        <div class="modal-header">
+          <p class="eyebrow">Review before import</p>
+          <h3 id="import-preview-title">Contacts detected</h3>
+          <p id="import-preview-subtitle">Check the names before adding them to your map.</p>
+        </div>
+        <div id="import-preview-list" class="import-preview-list"></div>
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" data-cancel-import>Cancel</button>
+          <button class="primary-action" type="button" data-confirm-import>Import These Contacts</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
