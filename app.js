@@ -1,17 +1,39 @@
 const STORAGE_KEY = "heart-mechanic-mvp1-v1";
 const BACKUP_VERSION = 1;
+const MAP_TRANSITION_DURATION_MS = 10850;
+const MAP_TRANSITION_GIF = "./assets/map-transition-once-720.gif";
+const MAP_TRANSITION_FINAL = "./assets/map-transition-final.png";
 
 const relationshipTypes = ["Family", "Friend", "Ex-Partner", "Romantic", "Work", "Neighbour", "Mentor", "Community", "Other"];
-const energeticOrientations = ["Grounded", "Activated", "Expansive", "Draining", "Unclear"];
+const energeticOrientations = ["Grounded", "Activated", "Unclear"];
 const currentStatuses = ["Active", "Distant", "Disconnected"];
-const placements = ["Inner Counsel", "Knights", "Nobles", "Courtiers", "Villagers"];
+const architectPlacements = ["Inner Counsel", "Knights", "Nobles", "Courtiers", "Villagers", "Out of Kingdom"];
+const mechanicPlacements = ["Inner Counsel", "Knights", "Nobles", "Noble Fading", "Courtiers", "Villagers", "The Hold", "Out of Kingdom"];
+const placements = architectPlacements;
+const allPlacements = Array.from(new Set([...architectPlacements, ...mechanicPlacements]));
+const knightStatuses = ["Active", "Rising"];
+const nobleStatuses = ["Active", "Legacy"];
 const placementDescriptions = {
   "": "Not placed yet. Leave someone here until the architecture becomes clear.",
   "Inner Counsel": "The closest, safest and most trusted people in the current map.",
   Knights: "Active supporters, allies and meaningful relationships with real presence.",
   Nobles: "People with significance, history or wisdom, but not necessarily daily access.",
+  "Noble Fading": "Noble relationships that still matter, but are losing present alignment or access.",
   Courtiers: "People with some access, relevance or recurring contact, but less emotional authority.",
-  Villagers: "Peripheral people who belong in the world of the map without needing central access."
+  Villagers: "Peripheral people who belong in the world of the map without needing central access.",
+  "The Hold": "Unclear or unresolved relationships that need more time before a final placement.",
+  "Out of Kingdom": "People who sit outside your current relational structure and require little or no access."
+};
+const placementSealAssets = {
+  "": "./assets/seal-unmapped.png",
+  "Inner Counsel": "./assets/seal-inner-counsel.png",
+  Knights: "./assets/seal-knights.png",
+  Nobles: "./assets/seal-nobles.png",
+  "Noble Fading": "./assets/seal-noble-fading.png",
+  Courtiers: "./assets/seal-courtiers.png",
+  Villagers: "./assets/seal-villagers.png",
+  "The Hold": "./assets/seal-hold.png",
+  "Out of Kingdom": "./assets/seal-out-of-kingdom.png"
 };
 
 const sampleNames = [
@@ -32,8 +54,10 @@ let censusDrag = null;
 let nameMode = "real";
 let selectedSphereId = null;
 let activeProfileId = null;
+let activeProfileReturnRoute = "architect";
 let currentRoute = "welcome";
 let routeHistory = [];
+let mapTransitionTimer = null;
 
 const views = document.querySelectorAll(".view");
 const navButtons = document.querySelectorAll("[data-route]");
@@ -47,24 +71,45 @@ function makeId() {
   return `c_${Math.random().toString(16).slice(2)}_${Date.now()}`;
 }
 
+function defaultSeals() {
+  return { mirror: false, witness: false, architect: false };
+}
+
+function inferSeals(contacts, savedSeals = {}) {
+  const seals = { ...defaultSeals(), ...savedSeals };
+  const members = contacts.filter((contact) => contact.censusStatus === "inside" || contact.includedInKingdom === true);
+  const mirrorReady = members.length > 0 && members.every((contact) => contact.energeticOrientation);
+  const witnessReady = members.length > 0 && members.every((contact) => contact.relationshipType && contact.energeticOrientation && contact.currentStatus);
+  const architectReady = members.length > 0 && members.every((contact) => contact.placement);
+
+  return {
+    mirror: Boolean(seals.mirror) || mirrorReady,
+    witness: Boolean(seals.witness) || (Boolean(seals.mirror) || mirrorReady) && witnessReady,
+    architect: Boolean(seals.architect) || (Boolean(seals.witness) || witnessReady) && architectReady
+  };
+}
+
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
+      const contacts = (parsed.contacts || []).map(normalizeContact);
       return {
-        contacts: (parsed.contacts || []).map(normalizeContact),
+        contacts,
         censusHistory: parsed.censusHistory || [],
-        lastSavedAt: parsed.lastSavedAt || ""
+        lastSavedAt: parsed.lastSavedAt || "",
+        seals: inferSeals(contacts, parsed.seals)
       };
     } catch (error) {
       console.warn("Could not load saved state", error);
     }
   }
-  return { contacts: [], censusHistory: [], lastSavedAt: "" };
+  return { contacts: [], censusHistory: [], lastSavedAt: "", seals: defaultSeals() };
 }
 
 function saveState() {
+  state.seals = { ...defaultSeals(), ...(state.seals || {}) };
   state.lastSavedAt = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   renderLastSaved();
@@ -82,6 +127,7 @@ function backupPayload() {
     exportedAt: new Date().toISOString(),
     contacts: state.contacts.map(normalizeContact),
     censusHistory: state.censusHistory || [],
+    seals: { ...defaultSeals(), ...(state.seals || {}) },
     lastSavedAt: state.lastSavedAt || ""
   };
 }
@@ -119,10 +165,12 @@ async function restoreProgress(file) {
   const confirmed = window.confirm("Restore this backup? This will replace the progress currently stored in this browser.");
   if (!confirmed) return;
 
+  const contacts = parsed.contacts.map(normalizeContact);
   state = {
-    contacts: parsed.contacts.map(normalizeContact),
+    contacts,
     censusHistory: Array.isArray(parsed.censusHistory) ? parsed.censusHistory : [],
-    lastSavedAt: parsed.lastSavedAt || ""
+    lastSavedAt: parsed.lastSavedAt || "",
+    seals: inferSeals(contacts, parsed.seals)
   };
   saveAndRender();
   routeHistory = [];
@@ -148,11 +196,19 @@ function normalizeContact(contact) {
     censusStatus: ["inside", "outside", "skipped", "candidate"].includes(status) ? status : "outside",
     includedInKingdom: status === "inside" ? true : status === "outside" ? false : null,
     relationshipType: contact.relationshipType || "",
-    energeticOrientation: contact.energeticOrientation || "",
+    energeticOrientation: normalizeEnergeticOrientation(contact.energeticOrientation),
     castName: contact.castName || "",
     currentStatus: contact.currentStatus || "",
-    placement: placements.includes(contact.placement) ? contact.placement : ""
+    placement: allPlacements.includes(contact.placement) ? contact.placement : "",
+    knightStatus: knightStatuses.includes(contact.knightStatus) ? contact.knightStatus : "Active",
+    nobleStatus: nobleStatuses.includes(contact.nobleStatus) ? contact.nobleStatus : "Active"
   };
+}
+
+function normalizeEnergeticOrientation(value) {
+  if (energeticOrientations.includes(value)) return value;
+  if (value === "Expansive" || value === "Draining") return "Unclear";
+  return "";
 }
 
 function contactSignature(contact) {
@@ -196,36 +252,90 @@ function candidateContacts() {
   return state.contacts.filter((contact) => contact.censusStatus === "candidate");
 }
 
-function isWeek1Complete() {
+function isMirrorReady() {
   const members = kingdomContacts();
   return members.length > 0 && members.every((contact) => contact.energeticOrientation);
 }
 
-function isWeek2Complete() {
+function isWitnessReady() {
   const members = kingdomContacts();
-  return isWeek1Complete() && members.length > 0 && members.every((contact) => contact.relationshipType && contact.energeticOrientation && contact.currentStatus);
+  return members.length > 0 && members.every((contact) => contact.relationshipType && contact.energeticOrientation && contact.currentStatus);
+}
+
+function isArchitectReady() {
+  const members = kingdomContacts();
+  return members.length > 0 && members.every((contact) => contact.placement);
+}
+
+function isWeek1Complete() {
+  return Boolean(state.seals?.mirror) || isMirrorReady();
+}
+
+function isWeek2Complete() {
+  return Boolean(state.seals?.witness) || (isWeek1Complete() && isWitnessReady());
 }
 
 function isWeek3Complete() {
-  const members = kingdomContacts();
-  return isWeek2Complete() && members.length > 0 && members.every((contact) => contact.placement);
+  return Boolean(state.seals?.architect) || (isWeek2Complete() && isArchitectReady());
+}
+
+function markSeal(seal) {
+  state.seals = { ...defaultSeals(), ...(state.seals || {}), [seal]: true };
+  saveState();
 }
 
 function setRoute(route, trackHistory = true) {
-  if (route === "mirror-complete" && !isWeek1Complete()) route = "census";
-  if (route === "witness-complete" && !isWeek2Complete()) route = "foundation";
-  if (route === "architect-complete" && !isWeek3Complete()) route = "architect";
+  if (route === "mirror-complete" && !isMirrorReady() && !state.seals?.mirror) route = "census";
+  if (route === "witness-complete" && !isWitnessReady() && !state.seals?.witness) route = "foundation";
+  if (route === "architect-complete" && !isArchitectReady() && !state.seals?.architect) route = "architect";
   if (route === "person-profile" && !activeProfileId) route = "architect";
   if (route === "foundation" && !isWeek1Complete()) route = "census";
   if (route === "architect" && !isWeek2Complete()) route = "foundation";
+  if (route === "mechanic" && !isWeek3Complete()) route = "architect";
+  if (route === "mirror-complete" && isMirrorReady()) markSeal("mirror");
+  if (route === "witness-complete" && isWitnessReady()) markSeal("witness");
+  if (route === "architect-complete" && isArchitectReady()) markSeal("architect");
   if (trackHistory && route !== currentRoute) {
     routeHistory.push(currentRoute);
   }
   currentRoute = route;
   views.forEach((view) => view.classList.toggle("active", view.id === route));
+  const mapLab = document.querySelector("#map-lab");
+  if (mapLab && route === "map-lab") resetMapTransition();
+  if (mapLab && route !== "map-lab") clearMapTransitionTimer();
   renderTopBack();
   if (route === "census") renderCensusCard();
   if (route === "person-profile") renderProfile();
+}
+
+function clearMapTransitionTimer() {
+  if (!mapTransitionTimer) return;
+  window.clearTimeout(mapTransitionTimer);
+  mapTransitionTimer = null;
+}
+
+function resetMapTransition() {
+  const mapLab = document.querySelector("#map-lab");
+  const image = document.querySelector("[data-map-transition-image]");
+  if (!mapLab || !image) return;
+
+  clearMapTransitionTimer();
+  mapLab.classList.remove("map-revealed", "map-transition-complete");
+  image.src = "";
+  window.requestAnimationFrame(() => {
+    image.src = `${MAP_TRANSITION_GIF}?t=${Date.now()}`;
+  });
+
+  mapTransitionTimer = window.setTimeout(() => {
+    image.src = MAP_TRANSITION_FINAL;
+    mapLab.classList.add("map-transition-complete");
+    mapTransitionTimer = null;
+  }, MAP_TRANSITION_DURATION_MS);
+}
+
+function revealMapView() {
+  clearMapTransitionTimer();
+  document.querySelector("#map-lab")?.classList.add("map-revealed");
 }
 
 function goBack() {
@@ -246,8 +356,18 @@ function displayName(contact) {
 
 function miniSphere(contact) {
   return `
-    <img class="relationship-symbol mini-seal" src="./assets/relationship-symbol.png" alt="" aria-hidden="true" />
+    <img class="relationship-symbol mini-seal" src="${placementSealFor(contact)}" alt="" aria-hidden="true" />
   `;
+}
+
+function placementSealFor(contact) {
+  if (contact?.placement === "Knights" && contact?.knightStatus === "Rising") return "./assets/seal-knight-rising.png";
+  if (contact?.placement === "Nobles" && contact?.nobleStatus === "Legacy") return "./assets/seal-noble-legacy.png";
+  return placementSealAssets[contact?.placement || ""] || placementSealAssets[""];
+}
+
+function placementSealMarkup(contact, className = "mini-seal") {
+  return `<img class="relationship-symbol ${className}" src="${placementSealFor(contact)}" alt="" aria-hidden="true" />`;
 }
 
 function renderProgress() {
@@ -276,6 +396,7 @@ function renderProgress() {
   setStatus("#week-1-status", weekStatusText(1), isWeek1Complete());
   setStatus("#week-2-status", isWeek2Complete() ? "Witness Lens complete" : isWeek1Complete() ? "Ready" : "Locked", isWeek2Complete(), !isWeek1Complete());
   setStatus("#week-3-status", isWeek3Complete() ? "Kingdom Structure complete" : isWeek2Complete() ? "Ready" : "Locked", isWeek3Complete(), !isWeek2Complete());
+  setStatus("#week-4-status", isWeek3Complete() ? "Ready" : "Locked", false, !isWeek3Complete());
   renderTopBack();
 }
 
@@ -291,6 +412,7 @@ function weekStatusText(week) {
 
 function setStatus(selector, text, complete, locked = false) {
   const element = document.querySelector(selector);
+  if (!element) return;
   element.textContent = text;
   element.classList.toggle("complete", complete);
   element.classList.toggle("locked", locked);
@@ -611,14 +733,14 @@ function renderArchitect() {
     return;
   }
 
-  const unplaced = members.filter((contact) => !contact.placement);
+  const unplaced = members.filter((contact) => !contact.placement || !architectPlacements.includes(contact.placement));
   document.querySelector("#structure-progress").textContent = `${members.length - unplaced.length} placed`;
   document.querySelector("#placement-guidance").textContent = selectedSphereId
     ? "Now tap a placement column, or drag the selected person into place."
     : "Drag a person into a column. Use Open to edit their identity, energy, relationship, status or placement without going back to Week 2.";
-  const columns = ["Unplaced", ...placements];
+  const columns = ["Unplaced", ...architectPlacements];
   document.querySelector("#placement-columns").innerHTML = columns.map((placement) => {
-    const people = placement === "Unplaced" ? unplaced : members.filter((contact) => contact.placement === placement);
+    const people = placement === "Unplaced" ? unplaced : sortPlacementPeople(members.filter((contact) => contact.placement === placement), placement);
     const placementValue = placement === "Unplaced" ? "" : placement;
     return `
       <section class="placement-column ${placementValue ? "" : "unplaced-column"}" data-placement="${placementValue}">
@@ -667,22 +789,27 @@ function renderArchitectComplete() {
   summary.textContent = `You now have your first Kingdom Map with ${total} ${total === 1 ? "person" : "people"} placed inside the structure.`;
 }
 
-function placementCardMarkup(contact) {
+function placementCardMarkup(contact, options = {}) {
+  const showOpen = options.showOpen !== false;
   const selected = selectedSphereId === contact.id ? "selected" : "";
   const secondary = [
     contact.relationshipType,
     contact.energeticOrientation,
     contact.currentStatus,
+    contact.placement === "Knights" && contact.knightStatus === "Rising" ? "Knight Rising" : "",
+    contact.placement === "Nobles" && contact.nobleStatus === "Legacy" ? "Noble Legacy" : "",
+    contact.placement === "Noble Fading" ? "Noble Fading" : "",
+    contact.placement === "The Hold" ? "The Hold" : "",
     contact.castName ? `Cast: ${contact.castName}` : ""
   ].filter(Boolean).join(" · ");
   return `
-    <article class="placement-person ${selected}" data-contact="${contact.id}" draggable="true">
-      ${miniSphere(contact)}
+    <article class="placement-person ${selected} ${contact.placement === "Nobles" && contact.nobleStatus === "Legacy" ? "noble-legacy-card" : ""} ${contact.placement === "Noble Fading" ? "noble-fading-card" : ""} ${contact.placement === "Knights" && contact.knightStatus === "Rising" ? "knight-rising-card" : ""}" data-contact="${contact.id}" draggable="true">
+      ${placementSealMarkup(contact, "placement-seal")}
       <div class="person-main">
         <strong>${escapeHtml(displayName(contact))}</strong>
         <span>${escapeHtml(secondary || "No details added")}</span>
       </div>
-      <button class="placement-open-btn" type="button" data-open-profile="${contact.id}">Open</button>
+      ${showOpen ? `<button class="placement-open-btn" type="button" data-open-profile="${contact.id}">Open</button>` : ""}
     </article>
   `;
 }
@@ -692,12 +819,15 @@ function renderProfile() {
   if (!shell) return;
 
   const contact = state.contacts.find((item) => item.id === activeProfileId);
+  const returnRoute = activeProfileReturnRoute === "mechanic" ? "mechanic" : "architect";
+  const returnLabel = returnRoute === "mechanic" ? "Back to Mechanic Map" : "Back to Architect Lens";
+  const profilePlacements = returnRoute === "mechanic" ? mechanicPlacements : architectPlacements;
   if (!contact) {
     shell.innerHTML = `
       <div class="panel profile-panel">
         <p class="eyebrow">Person profile</p>
         <h2>No profile selected.</h2>
-        <button class="secondary-action" data-route="architect">Back to Architect Lens</button>
+        <button class="secondary-action" data-route="${returnRoute}">${returnLabel}</button>
       </div>
     `;
     return;
@@ -710,7 +840,7 @@ function renderProfile() {
         <h2 id="profile-title">${escapeHtml(displayName(contact))}</h2>
         <p>Edit the details for this person without leaving the architecture of the map.</p>
       </div>
-      ${miniSphere(contact)}
+      ${placementSealMarkup(contact, "profile-placement-seal")}
     </div>
 
     <div class="profile-grid">
@@ -766,17 +896,74 @@ function renderProfile() {
           <span>Placement</span>
           <select data-profile="${contact.id}" data-field="placement">
             <option value="">Unplaced</option>
-            ${placements.map((placement) => `<option value="${placement}" ${contact.placement === placement ? "selected" : ""}>${placement}</option>`).join("")}
+            ${profilePlacements.map((placement) => `<option value="${placement}" ${contact.placement === placement ? "selected" : ""}>${placement}</option>`).join("")}
           </select>
         </label>
+        ${contact.placement === "Knights" ? `
+          <label>
+            <span>Knight Status</span>
+            <select data-profile="${contact.id}" data-field="knightStatus">
+              ${knightStatuses.map((status) => `<option value="${status}" ${contact.knightStatus === status ? "selected" : ""}>Knight ${status}</option>`).join("")}
+            </select>
+          </label>
+        ` : ""}
+        ${returnRoute === "mechanic" && contact.placement === "Nobles" ? `
+          <label>
+            <span>Noble Status</span>
+            <select data-profile="${contact.id}" data-field="nobleStatus">
+              ${nobleStatuses.map((status) => `<option value="${status}" ${contact.nobleStatus === status ? "selected" : ""}>Noble ${status}</option>`).join("")}
+            </select>
+          </label>
+        ` : ""}
       </div>
     </div>
 
     <div class="week-actions profile-actions">
-      <button class="secondary-action" data-route="architect">Back to Architect Lens</button>
+      <button class="secondary-action" data-route="${returnRoute}">${returnLabel}</button>
       <button class="text-button" type="button" data-delete-profile="${contact.id}">Delete Person</button>
     </div>
   `;
+}
+
+function sortPlacementPeople(people, placement) {
+  return [...people].sort((first, second) => displayName(first).localeCompare(displayName(second)));
+}
+
+function renderMechanic() {
+  const gate = document.querySelector("#mechanic-gate");
+  const workspace = document.querySelector("#mechanic-workspace");
+  if (!gate || !workspace) return;
+
+  gate.classList.toggle("active", !isWeek3Complete());
+  gate.textContent = "Week 4 opens after your first Kingdom Map is complete.";
+  workspace.style.display = isWeek3Complete() ? "block" : "none";
+
+  if (!isWeek3Complete()) return;
+
+  const members = kingdomContacts();
+  const unplaced = members.filter((contact) => !contact.placement);
+  const placed = members.length - unplaced.length;
+  document.querySelector("#mechanic-count").textContent = `${placed} placed`;
+
+  const columns = ["Unplaced", ...mechanicPlacements];
+  document.querySelector("#mechanic-columns").innerHTML = columns.map((placement) => {
+    const people = placement === "Unplaced" ? unplaced : sortPlacementPeople(members.filter((contact) => contact.placement === placement), placement);
+    const placementValue = placement === "Unplaced" ? "" : placement;
+    return `
+      <section class="placement-column ${placementValue ? "" : "unplaced-column"}" data-placement="${placementValue}">
+        <header>
+          <div>
+            <h3>${placement}</h3>
+            <p>${escapeHtml(placementDescriptions[placementValue] || "")}</p>
+          </div>
+          <span>${people.length}</span>
+        </header>
+        <div class="placement-card-list">
+          ${people.map((contact) => placementCardMarkup(contact)).join("") || `<div class="empty-state">No one here yet.</div>`}
+        </div>
+      </section>
+    `;
+  }).join("");
 }
 
 function renderImportPreview() {
@@ -826,6 +1013,7 @@ function renderAll() {
   renderWitnessComplete();
   renderArchitect();
   renderArchitectComplete();
+  renderMechanic();
   renderProfile();
 }
 
@@ -1041,7 +1229,7 @@ document.querySelector("[data-confirm-import]").addEventListener("click", () => 
   pendingImport = [];
   importPreviewDialog.close();
   saveAndRender();
-  setRoute("census");
+  setRoute(isWeek1Complete() ? currentRoute : "census", false);
 });
 
 document.querySelector("[data-cancel-import]").addEventListener("click", () => {
@@ -1052,7 +1240,7 @@ document.querySelector("[data-cancel-import]").addEventListener("click", () => {
 document.querySelectorAll("[data-reset]").forEach((button) => {
   button.addEventListener("click", () => {
     localStorage.removeItem(STORAGE_KEY);
-    state = { contacts: [], censusHistory: [], lastSavedAt: "" };
+    state = { contacts: [], censusHistory: [], lastSavedAt: "", seals: defaultSeals() };
     routeHistory = [];
     saveAndRender();
     setRoute("census");
@@ -1060,6 +1248,12 @@ document.querySelectorAll("[data-reset]").forEach((button) => {
 });
 
 document.addEventListener("click", (event) => {
+  const revealMap = event.target.closest("[data-reveal-map]");
+  if (revealMap) {
+    revealMapView();
+    return;
+  }
+
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
     setRoute(routeButton.dataset.route);
@@ -1069,6 +1263,7 @@ document.addEventListener("click", (event) => {
   const openProfile = event.target.closest("[data-open-profile]");
   if (openProfile) {
     activeProfileId = openProfile.dataset.openProfile;
+    activeProfileReturnRoute = currentRoute === "mechanic" ? "mechanic" : "architect";
     setRoute("person-profile");
     return;
   }
@@ -1079,7 +1274,7 @@ document.addEventListener("click", (event) => {
     state.censusHistory = state.censusHistory.filter((id) => id !== deleteProfile.dataset.deleteProfile);
     activeProfileId = null;
     saveAndRender();
-    setRoute("architect");
+    setRoute(activeProfileReturnRoute === "mechanic" ? "mechanic" : "architect");
     return;
   }
 
@@ -1162,7 +1357,8 @@ document.addEventListener("click", (event) => {
   if (placementPerson) {
     if (event.target.closest("[data-open-profile]")) return;
     selectedSphereId = selectedSphereId === placementPerson.dataset.contact ? null : placementPerson.dataset.contact;
-    renderArchitect();
+    if (currentRoute === "mechanic") renderMechanic();
+    else renderArchitect();
   }
 
   const placementColumn = event.target.closest(".placement-column");
@@ -1200,6 +1396,15 @@ document.addEventListener("change", (event) => {
     const contact = state.contacts.find((item) => item.id === profileField.dataset.profile);
     if (!contact) return;
     contact[profileField.dataset.field] = profileField.value;
+    saveAndRender();
+    return;
+  }
+
+  const mechanicField = event.target.closest("[data-mechanic]");
+  if (mechanicField) {
+    const contact = state.contacts.find((item) => item.id === mechanicField.dataset.mechanic);
+    if (!contact) return;
+    contact[mechanicField.dataset.field] = mechanicField.value;
     saveAndRender();
     return;
   }

@@ -26,23 +26,25 @@
             <p class="hero-subtitle">Begin with the Mirror Lens. Add the first people who matter, notice the emotional signal, then let the map deepen week by week.</p>
             <div class="hero-actions">
               <button class="primary-action" data-route="census">Activate Mirror Lens</button>
-            </div>
-            <div class="backup-panel">
-              <div>
-                <strong>Session Backup</strong>
-                <span id="last-saved-label">Not saved yet</span>
-              </div>
-              <div class="backup-actions">
-                <button class="secondary-action compact-action" type="button" data-export-progress>Export Progress</button>
-                <label class="secondary-action compact-action restore-action">
-                  <input id="restore-backup-input" type="file" accept=".json,application/json" />
-                  Restore Backup
-                </label>
-              </div>
+              <button class="secondary-action" data-route="design-lab">Preview Design Lab</button>
+              <button class="secondary-action" data-route="map-lab">Preview Map View</button>
             </div>
           </div>
           <div class="hero-visual" aria-hidden="true">
             <img class="kingdom-hero-map" src="./assets/kingdom-map-hero.jpeg" alt="" />
+          </div>
+          <div class="backup-panel">
+            <div>
+              <strong>Session Backup</strong>
+              <span id="last-saved-label">Not saved yet</span>
+            </div>
+            <div class="backup-actions">
+              <button class="secondary-action compact-action" type="button" data-export-progress>Export Progress</button>
+              <label class="secondary-action compact-action restore-action">
+                <input id="restore-backup-input" type="file" accept=".json,application/json" />
+                Restore Backup
+              </label>
+            </div>
           </div>
         </section>
 
@@ -263,11 +265,200 @@
             <p>This is a living, breathing map. It will continue to change as your relationships change, and it can become a diagnostic tool you use for life.</p>
             <div class="hero-actions">
               <button class="primary-action" data-route="architect">Open My Kingdom Map</button>
-              <button class="secondary-action" data-route="locked">View Future Weeks</button>
+              <button class="secondary-action" data-route="mechanic">Begin Week 4: The Mechanic</button>
             </div>
           </div>
           <div class="seal-visual" aria-hidden="true">
             <img src="./assets/mirror-lens-seal.jpg" alt="" />
+          </div>
+        </section>
+
+        <section id="mechanic" class="view" aria-labelledby="mechanic-title">
+          <div class="week-heading">
+            <div>
+              <p class="eyebrow">Week 4: The Mechanic</p>
+              <h2 id="mechanic-title">What is shifting in the structure?</h2>
+              <p>The Week 3 map carries forward. The Mechanic layer adds movement states without rebuilding the map from scratch.</p>
+            </div>
+            <div id="week-4-status" class="status-pill">Locked</div>
+          </div>
+
+          <div id="mechanic-gate" class="locked-message"></div>
+          <div id="mechanic-workspace" class="placement-board panel mechanic-workspace">
+            <div class="placement-board-header">
+              <div>
+                <h3>Mechanic Map</h3>
+                <p>Noble Fading appears after Nobles. The Hold appears after Villagers, before Out of Kingdom.</p>
+              </div>
+              <span id="mechanic-count" class="status-pill">0 placed</span>
+            </div>
+            <div id="mechanic-columns" class="placement-columns mechanic-columns"></div>
+          </div>
+
+          <div class="week-actions">
+            <button class="secondary-action" data-route="design-lab">Preview Premium Design Lab</button>
+            <button class="secondary-action" data-route="architect">Back to Architect Map</button>
+          </div>
+        </section>
+
+        <section id="design-lab" class="view design-lab-view" aria-labelledby="design-lab-title">
+          <div class="week-heading">
+            <div>
+              <p class="eyebrow">Design Lab</p>
+              <h2 id="design-lab-title">A calmer premium Week 4 direction.</h2>
+              <p>This is a non-destructive mockup. It does not use or change your saved map.</p>
+            </div>
+            <button class="secondary-action compact-action" data-route="mechanic">Back to Week 4</button>
+          </div>
+
+          <div class="lab-stage">
+            <div class="lab-column">
+              <header>
+                <span>03</span>
+                <h3>Nobles</h3>
+                <p>Significance, history, wisdom.</p>
+              </header>
+              <article class="lab-person">
+                <img src="./assets/seal-nobles.png" alt="" />
+                <div>
+                  <strong>Aldebaran</strong>
+                  <span>Friend · Grounded</span>
+                </div>
+                <button type="button">View</button>
+              </article>
+              <article class="lab-person">
+                <img src="./assets/seal-noble-legacy.png" alt="" />
+                <div>
+                  <strong>Europa</strong>
+                  <span>Family · Unclear</span>
+                </div>
+                <button type="button">View</button>
+              </article>
+            </div>
+
+            <div class="lab-column lab-column-warm">
+              <header>
+                <span>04</span>
+                <h3>Noble Fading</h3>
+                <p>Still meaningful, but moving away from present access.</p>
+              </header>
+              <article class="lab-person">
+                <img src="./assets/seal-noble-fading.png" alt="" />
+                <div>
+                  <strong>Saturn</strong>
+                  <span>Friend · Distant</span>
+                </div>
+                <button type="button">View</button>
+              </article>
+            </div>
+
+            <div class="lab-column lab-column-hold">
+              <header>
+                <span>07</span>
+                <h3>The Hold</h3>
+                <p>Pause, observe, reassess.</p>
+              </header>
+              <article class="lab-person">
+                <img src="./assets/seal-unmapped.png" alt="" />
+                <div>
+                  <strong>Mercury</strong>
+                  <span>Community · Activated</span>
+                </div>
+                <button type="button">View</button>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="map-lab" class="view map-lab-view" aria-labelledby="map-lab-title">
+          <div class="week-heading">
+            <div>
+              <p class="eyebrow">Map View Lab</p>
+              <h2 id="map-lab-title">The Kingdom as living architecture.</h2>
+              <p>A non-destructive mockup using the premium 3D map as the visual destination view.</p>
+            </div>
+            <div class="week-heading-actions">
+              <button class="secondary-action compact-action" data-route="design-lab">Column Lab</button>
+              <button class="secondary-action compact-action" data-route="mechanic">Back to Week 4</button>
+            </div>
+          </div>
+
+          <div class="map-transition-stage">
+            <img data-map-transition-image src="./assets/map-transition-once-720.gif" alt="Animated Kingdom transition" />
+            <div class="map-transition-copy">
+              <p class="eyebrow">Map Activation</p>
+              <h3>The Kingdom collapses into the living map.</h3>
+              <button class="primary-action compact-action" type="button" data-reveal-map>Reveal Map View</button>
+            </div>
+          </div>
+
+          <div class="map-reveal-content">
+            <div class="premium-map-stage">
+              <img class="premium-map-base" src="./assets/map-view-premium.jpg" alt="" />
+              <button class="map-node marker-inner active" type="button" aria-label="Aldebaran, Inner Counsel">
+                <img src="./assets/glass-node.png" alt="" />
+                <span>Aldebaran</span>
+              </button>
+              <button class="map-node marker-knight node-rising" type="button" aria-label="Mira, Knight Rising">
+                <img src="./assets/glass-node.png" alt="" />
+                <span>Mira</span>
+              </button>
+              <button class="map-node marker-noble node-legacy" type="button" aria-label="Europa, Noble Legacy">
+                <img src="./assets/glass-node.png" alt="" />
+                <span>Europa</span>
+              </button>
+              <button class="map-node marker-fading node-fading" type="button" aria-label="Saturn, Noble Fading">
+                <img src="./assets/glass-node-fading.png" alt="" />
+                <span>Saturn</span>
+              </button>
+              <button class="map-node marker-courtier" type="button" aria-label="Deneb, Courtier">
+                <img src="./assets/glass-node.png" alt="" />
+                <span>Deneb</span>
+              </button>
+              <button class="map-node marker-villager node-villager" type="button" aria-label="Lo, Villager">
+                <img src="./assets/glass-node.png" alt="" />
+                <span>Lo</span>
+              </button>
+              <button class="map-node marker-hold node-hold" type="button" aria-label="Mercury, The Hold">
+                <img src="./assets/glass-node.png" alt="" />
+                <span>Mercury</span>
+              </button>
+              <button class="map-node marker-out node-out" type="button" aria-label="Neptune, Out of Kingdom">
+                <img src="./assets/glass-node.png" alt="" />
+                <span>Neptune</span>
+              </button>
+              <aside class="map-selection-panel">
+                <img src="./assets/seal-inner-counsel.png" alt="" />
+                <div>
+                  <p class="eyebrow">Selected Node</p>
+                  <h3>Aldebaran</h3>
+                  <span>Inner Counsel · Grounded · Active</span>
+                </div>
+              </aside>
+              <aside class="map-node-key" aria-label="Map node language">
+                <div>
+                  <img class="node-key-dot" src="./assets/glass-node.png" alt="" />
+                  <span>Present</span>
+                </div>
+                <div>
+                  <img class="node-key-dot key-rising" src="./assets/glass-node.png" alt="" />
+                  <span>Rising</span>
+                </div>
+                <div>
+                  <img class="node-key-dot key-charged" src="./assets/glass-node.png" alt="" />
+                  <span>Charged</span>
+                </div>
+                <div>
+                  <img class="node-key-dot key-fading" src="./assets/glass-node-fading.png" alt="" />
+                  <span>Fading</span>
+                </div>
+              </aside>
+            </div>
+
+            <div class="map-lab-caption panel">
+              <strong>View-only concept</strong>
+              <span>Edit in columns. Open the map when you want the emotional architecture to become visible.</span>
+            </div>
           </div>
         </section>
 
@@ -276,14 +467,15 @@
             <div>
               <p class="eyebrow">Future weeks</p>
               <h2 id="locked-title">The system opens progressively.</h2>
-              <p>Weeks 4-6 are visible for orientation only. They are intentionally locked for MVP 1.</p>
+              <p>Week 4 now has a first Mechanic layer. Weeks 5-6 remain visible for orientation only.</p>
             </div>
           </div>
           <div class="locked-grid">
             <article class="panel locked-card">
-              <span>Locked</span>
+              <span>Opens after Week 3</span>
               <h3>Week 4: The Mechanic</h3>
-              <p>Potential, present, rising, hold, fading and repositioning will be added later.</p>
+              <p>Noble Fading and The Hold begin here. Deeper mechanic states will be added later.</p>
+              <button class="secondary-action compact-action" data-route="mechanic">Open Week 4</button>
             </article>
             <article class="panel locked-card">
               <span>Locked</span>
