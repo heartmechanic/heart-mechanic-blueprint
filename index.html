@@ -21,28 +21,33 @@
       <main>
         <section id="welcome" class="view welcome-view active" aria-labelledby="welcome-title">
           <div class="hero-copy">
-            <p class="eyebrow">Weeks 1-3 MVP</p>
-            <h1 id="welcome-title">Build the first architecture of your Kingdom, one relationship at a time.</h1>
-            <p class="hero-subtitle">Begin with the Mirror Lens. Add the first people who matter, notice the emotional signal, then let the map deepen week by week.</p>
+            <p class="eyebrow">The Heart Mechanic Blueprint</p>
+            <h1 id="welcome-title">Begin mapping<br />the relationships<br />that shape your life.</h1>
+            <p class="hero-subtitle">Start with the people who feel significant right now: those you love, those who challenge you, and those who still occupy emotional space. The map will deepen as the work unfolds.</p>
             <div class="hero-actions">
               <button class="primary-action" data-route="census">Activate Mirror Lens</button>
-              <button class="secondary-action" data-route="design-lab">Preview Design Lab</button>
-              <button class="secondary-action" data-route="map-lab">Preview Map View</button>
             </div>
+            <details class="preview-tools">
+              <summary>Preview tools</summary>
+              <div>
+                <button class="secondary-action compact-action" data-route="design-lab">Column Design</button>
+                <button class="secondary-action compact-action" data-route="map-lab">The Living Map</button>
+              </div>
+            </details>
           </div>
           <div class="hero-visual" aria-hidden="true">
-            <img class="kingdom-hero-map" src="./assets/kingdom-map-hero.jpeg" alt="" />
+            <img class="kingdom-hero-map" src="./assets/map-view-premium.jpg" alt="" />
           </div>
           <div class="backup-panel">
             <div>
-              <strong>Session Backup</strong>
+              <strong>Save Session</strong>
               <span id="last-saved-label">Not saved yet</span>
             </div>
             <div class="backup-actions">
-              <button class="secondary-action compact-action" type="button" data-export-progress>Export Progress</button>
+              <button class="secondary-action compact-action" type="button" data-export-progress>Export Session</button>
               <label class="secondary-action compact-action restore-action">
                 <input id="restore-backup-input" type="file" accept=".json,application/json" />
-                Restore Backup
+                Restore Session
               </label>
             </div>
           </div>
@@ -53,11 +58,11 @@
             <div>
               <p class="eyebrow">Week 1: Mirror Lens</p>
               <h2 id="census-title">Who is present in your relational field?</h2>
-              <p>Start with the first 10-20 people who carry real significance. You can add more each week as the course reveals them.</p>
+              <p>Start with the first 10-20 people who carry real significance.<br />You can add more each week as the course reveals them.</p>
             </div>
             <div class="week-heading-actions">
               <div id="week-1-status" class="status-pill">Not started</div>
-              <button class="secondary-action compact-action" type="button" data-reset>Start Fresh</button>
+              <button class="secondary-action compact-action danger-light" type="button" data-reset>Reset Map</button>
             </div>
           </div>
 
@@ -107,13 +112,14 @@
               </details>
               <div class="form-actions">
                 <button class="secondary-action" type="button" data-load-samples>Use Demo Contacts</button>
+                <button class="primary-action" type="button" data-begin-signals>Continue to Mirror Signals</button>
               </div>
             </div>
 
-            <div class="panel mirror-overview-panel">
+            <div class="panel mirror-overview-panel" id="mirror-stage-panel">
               <div class="panel-title row-title">
                 <div>
-                  <h3>Map Overview</h3>
+                  <h3>Mirror Signals</h3>
                   <p>Name the first emotional signal. Nothing else needs to be completed this week.</p>
                 </div>
                 <span id="mirror-count" class="status-pill">0 mapped</span>
@@ -126,7 +132,7 @@
           <div class="panel roster-panel" id="memory-bank-panel">
             <div class="panel-title row-title">
               <div>
-                <h3>Memory bank</h3>
+                <h3>Background list</h3>
                 <p id="population-summary">No contacts added yet.</p>
               </div>
             </div>
@@ -143,6 +149,7 @@
             <p>Use this as a seal. Week 1 is complete enough to move forward.</p>
             <div class="hero-actions">
               <button class="primary-action" data-route="foundation">Next Week 2: Witness Lens</button>
+              <button class="secondary-action" type="button" data-export-progress>Export Session</button>
               <button class="secondary-action" data-route="census">Return to Mirror Lens</button>
             </div>
           </div>
@@ -207,6 +214,7 @@
             <p>Use this as a seal. Week 2 is complete enough to move into the first architecture.</p>
             <div class="hero-actions">
               <button class="primary-action" data-route="architect">Next Week 3: Architect Lens</button>
+              <button class="secondary-action" type="button" data-export-progress>Export Session</button>
               <button class="secondary-action" data-route="foundation">Return to Witness Lens</button>
             </div>
           </div>
@@ -266,6 +274,7 @@
             <div class="hero-actions">
               <button class="primary-action" data-route="architect">Open My Kingdom Map</button>
               <button class="secondary-action" data-route="mechanic">Begin Week 4: The Mechanic</button>
+              <button class="secondary-action" type="button" data-export-progress>Export Session</button>
             </div>
           </div>
           <div class="seal-visual" aria-hidden="true">
@@ -278,17 +287,25 @@
             <div>
               <p class="eyebrow">Week 4: The Mechanic</p>
               <h2 id="mechanic-title">What is shifting in the structure?</h2>
-              <p>The Week 3 map carries forward. The Mechanic layer adds movement states without rebuilding the map from scratch.</p>
+              <p>Edit in columns. Reveal as map. The Mechanic layer lets you notice movement without rebuilding the structure from scratch.</p>
             </div>
             <div id="week-4-status" class="status-pill">Locked</div>
           </div>
 
           <div id="mechanic-gate" class="locked-message"></div>
+          <div class="mechanic-hero-panel panel">
+            <img src="./assets/mechanic-lens-hero.png" alt="Architect Lens glass sphere" />
+            <div>
+              <p class="eyebrow">Architect Lens</p>
+              <h3>The work now moves beneath the surface.</h3>
+              <p>Notice what is rising, fading, unresolved, or ready to be moved.</p>
+            </div>
+          </div>
           <div id="mechanic-workspace" class="placement-board panel mechanic-workspace">
             <div class="placement-board-header">
               <div>
                 <h3>Mechanic Map</h3>
-                <p>Noble Fading appears after Nobles. The Hold appears after Villagers, before Out of Kingdom.</p>
+                <p>Move people between states, open profiles when detail matters, then reveal the architecture in The Living Map.</p>
               </div>
               <span id="mechanic-count" class="status-pill">0 placed</span>
             </div>
@@ -296,7 +313,7 @@
           </div>
 
           <div class="week-actions">
-            <button class="secondary-action" data-route="design-lab">Preview Premium Design Lab</button>
+            <button class="primary-action" data-route="map-lab">View The Living Map</button>
             <button class="secondary-action" data-route="architect">Back to Architect Map</button>
           </div>
         </section>
@@ -373,18 +390,21 @@
         <section id="map-lab" class="view map-lab-view" aria-labelledby="map-lab-title">
           <div class="week-heading">
             <div>
-              <p class="eyebrow">Map View Lab</p>
+              <p class="eyebrow">The Living Map</p>
               <h2 id="map-lab-title">The Kingdom as living architecture.</h2>
-              <p>A non-destructive mockup using the premium 3D map as the visual destination view.</p>
+              <p>Open this view when you want the emotional architecture to become visible.</p>
             </div>
             <div class="week-heading-actions">
-              <button class="secondary-action compact-action" data-route="design-lab">Column Lab</button>
+              <button class="secondary-action compact-action" data-route="design-lab">Column Design</button>
               <button class="secondary-action compact-action" data-route="mechanic">Back to Week 4</button>
             </div>
           </div>
 
           <div class="map-transition-stage">
-            <img data-map-transition-image src="./assets/map-transition-once-720.gif" alt="Animated Kingdom transition" />
+            <video data-map-transition-video muted playsinline preload="auto" poster="./assets/map-transition-final.png" aria-label="Animated Kingdom transition">
+              <source src="./assets/map-transition.mp4" type="video/mp4" />
+            </video>
+            <img class="map-transition-final" src="./assets/map-transition-final.png" alt="" aria-hidden="true" />
             <div class="map-transition-copy">
               <p class="eyebrow">Map Activation</p>
               <h3>The Kingdom collapses into the living map.</h3>
@@ -456,7 +476,7 @@
             </div>
 
             <div class="map-lab-caption panel">
-              <strong>View-only concept</strong>
+              <strong>The Living Map</strong>
               <span>Edit in columns. Open the map when you want the emotional architecture to become visible.</span>
             </div>
           </div>

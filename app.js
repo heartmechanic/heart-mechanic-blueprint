@@ -1,8 +1,6 @@
 const STORAGE_KEY = "heart-mechanic-mvp1-v1";
 const BACKUP_VERSION = 1;
-const MAP_TRANSITION_DURATION_MS = 10850;
-const MAP_TRANSITION_GIF = "./assets/map-transition-once-720.gif";
-const MAP_TRANSITION_FINAL = "./assets/map-transition-final.png";
+const MAP_TRANSITION_PLAYBACK_RATE = 2;
 
 const relationshipTypes = ["Family", "Friend", "Ex-Partner", "Romantic", "Work", "Neighbour", "Mentor", "Community", "Other"];
 const energeticOrientations = ["Grounded", "Activated", "Unclear"];
@@ -58,6 +56,7 @@ let activeProfileReturnRoute = "architect";
 let currentRoute = "welcome";
 let routeHistory = [];
 let mapTransitionTimer = null;
+let mirrorSignalStage = false;
 
 const views = document.querySelectorAll(".view");
 const navButtons = document.querySelectorAll("[data-route]");
@@ -316,21 +315,27 @@ function clearMapTransitionTimer() {
 
 function resetMapTransition() {
   const mapLab = document.querySelector("#map-lab");
-  const image = document.querySelector("[data-map-transition-image]");
-  if (!mapLab || !image) return;
+  const video = document.querySelector("[data-map-transition-video]");
+  if (!mapLab || !video) return;
 
   clearMapTransitionTimer();
   mapLab.classList.remove("map-revealed", "map-transition-complete");
-  image.src = "";
-  window.requestAnimationFrame(() => {
-    image.src = `${MAP_TRANSITION_GIF}?t=${Date.now()}`;
-  });
 
-  mapTransitionTimer = window.setTimeout(() => {
-    image.src = MAP_TRANSITION_FINAL;
+  video.pause();
+  video.currentTime = 0;
+  video.playbackRate = MAP_TRANSITION_PLAYBACK_RATE;
+  video.onended = () => {
     mapLab.classList.add("map-transition-complete");
-    mapTransitionTimer = null;
-  }, MAP_TRANSITION_DURATION_MS);
+  };
+
+  window.requestAnimationFrame(() => {
+    const playPromise = video.play();
+    if (playPromise) {
+      playPromise.catch(() => {
+        mapLab.classList.add("map-transition-complete");
+      });
+    }
+  });
 }
 
 function revealMapView() {
@@ -567,6 +572,14 @@ function censusLabel(contact) {
 function renderMirrorOverview() {
   const members = kingdomContacts();
   const remaining = members.filter((contact) => !contact.energeticOrientation).length;
+  const mirrorPanel = document.querySelector("#mirror-stage-panel");
+  const beginSignalsButton = document.querySelector("[data-begin-signals]");
+  const shouldShowSignals = mirrorSignalStage || members.some((contact) => contact.energeticOrientation) || isWeek1Complete();
+  if (mirrorPanel) mirrorPanel.hidden = !shouldShowSignals;
+  if (beginSignalsButton) {
+    beginSignalsButton.disabled = !members.length;
+    beginSignalsButton.textContent = shouldShowSignals ? "Mirror Signals Open" : "Continue to Mirror Signals";
+  }
   document.querySelector("#mirror-count").textContent = `${members.length} mapped`;
   const overview = document.querySelector("#mirror-overview");
   overview.innerHTML = members.length
@@ -792,19 +805,17 @@ function renderArchitectComplete() {
 function placementCardMarkup(contact, options = {}) {
   const showOpen = options.showOpen !== false;
   const selected = selectedSphereId === contact.id ? "selected" : "";
+  const premium = options.premium ? "premium-placement-person" : "";
+  const sealClass = options.premium ? "premium-placement-seal" : "placement-seal";
   const secondary = [
     contact.relationshipType,
     contact.energeticOrientation,
     contact.currentStatus,
-    contact.placement === "Knights" && contact.knightStatus === "Rising" ? "Knight Rising" : "",
-    contact.placement === "Nobles" && contact.nobleStatus === "Legacy" ? "Noble Legacy" : "",
-    contact.placement === "Noble Fading" ? "Noble Fading" : "",
-    contact.placement === "The Hold" ? "The Hold" : "",
     contact.castName ? `Cast: ${contact.castName}` : ""
   ].filter(Boolean).join(" · ");
   return `
-    <article class="placement-person ${selected} ${contact.placement === "Nobles" && contact.nobleStatus === "Legacy" ? "noble-legacy-card" : ""} ${contact.placement === "Noble Fading" ? "noble-fading-card" : ""} ${contact.placement === "Knights" && contact.knightStatus === "Rising" ? "knight-rising-card" : ""}" data-contact="${contact.id}" draggable="true">
-      ${placementSealMarkup(contact, "placement-seal")}
+    <article class="placement-person ${premium} ${selected} ${contact.placement === "Nobles" && contact.nobleStatus === "Legacy" ? "noble-legacy-card" : ""} ${contact.placement === "Noble Fading" ? "noble-fading-card" : ""} ${contact.placement === "Knights" && contact.knightStatus === "Rising" ? "knight-rising-card" : ""}" data-contact="${contact.id}" draggable="true">
+      ${placementSealMarkup(contact, sealClass)}
       <div class="person-main">
         <strong>${escapeHtml(displayName(contact))}</strong>
         <span>${escapeHtml(secondary || "No details added")}</span>
@@ -929,6 +940,10 @@ function sortPlacementPeople(people, placement) {
   return [...people].sort((first, second) => displayName(first).localeCompare(displayName(second)));
 }
 
+function placementClassName(placement) {
+  return (placement || "unplaced").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 function renderMechanic() {
   const gate = document.querySelector("#mechanic-gate");
   const workspace = document.querySelector("#mechanic-workspace");
@@ -946,20 +961,21 @@ function renderMechanic() {
   document.querySelector("#mechanic-count").textContent = `${placed} placed`;
 
   const columns = ["Unplaced", ...mechanicPlacements];
-  document.querySelector("#mechanic-columns").innerHTML = columns.map((placement) => {
+  document.querySelector("#mechanic-columns").innerHTML = columns.map((placement, index) => {
     const people = placement === "Unplaced" ? unplaced : sortPlacementPeople(members.filter((contact) => contact.placement === placement), placement);
     const placementValue = placement === "Unplaced" ? "" : placement;
     return `
-      <section class="placement-column ${placementValue ? "" : "unplaced-column"}" data-placement="${placementValue}">
+      <section class="placement-column mechanic-column mechanic-zone-${placementClassName(placementValue)} ${placementValue ? "" : "unplaced-column"}" data-placement="${placementValue}">
         <header>
           <div>
+            <span class="column-index">${String(index + 1).padStart(2, "0")}</span>
             <h3>${placement}</h3>
             <p>${escapeHtml(placementDescriptions[placementValue] || "")}</p>
           </div>
-          <span>${people.length}</span>
+          <span class="column-count">${people.length}</span>
         </header>
         <div class="placement-card-list">
-          ${people.map((contact) => placementCardMarkup(contact)).join("") || `<div class="empty-state">No one here yet.</div>`}
+          ${people.map((contact) => placementCardMarkup(contact, { premium: true })).join("") || `<div class="empty-state">No one here yet.</div>`}
         </div>
       </section>
     `;
@@ -1176,7 +1192,9 @@ document.querySelectorAll("[data-load-samples]").forEach((button) => {
 });
 
 document.querySelector("#top-back").addEventListener("click", goBack);
-document.querySelector("[data-export-progress]").addEventListener("click", exportProgress);
+document.querySelectorAll("[data-export-progress]").forEach((button) => {
+  button.addEventListener("click", exportProgress);
+});
 document.querySelector("#restore-backup-input").addEventListener("change", async (event) => {
   const [file] = event.target.files;
   await restoreProgress(file);
@@ -1239,15 +1257,26 @@ document.querySelector("[data-cancel-import]").addEventListener("click", () => {
 
 document.querySelectorAll("[data-reset]").forEach((button) => {
   button.addEventListener("click", () => {
+    const confirmed = window.confirm("Reset this map and clear the saved session on this browser?");
+    if (!confirmed) return;
     localStorage.removeItem(STORAGE_KEY);
     state = { contacts: [], censusHistory: [], lastSavedAt: "", seals: defaultSeals() };
     routeHistory = [];
+    mirrorSignalStage = false;
     saveAndRender();
     setRoute("census");
   });
 });
 
 document.addEventListener("click", (event) => {
+  const beginSignals = event.target.closest("[data-begin-signals]");
+  if (beginSignals) {
+    mirrorSignalStage = true;
+    renderMirrorOverview();
+    document.querySelector("#mirror-stage-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
   const revealMap = event.target.closest("[data-reveal-map]");
   if (revealMap) {
     revealMapView();
