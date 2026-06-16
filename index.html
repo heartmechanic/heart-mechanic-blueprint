@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260616-map-logo-clear" />
   </head>
   <body>
     <div class="shell">
@@ -15,29 +15,93 @@
         <button class="brand" data-route="welcome" aria-label="The Heart Mechanic Blueprint home">
           <img src="./assets/heart-mechanic-logo.png" alt="By Mechanics of You" />
         </button>
+        <nav class="facilitator-jump" data-facilitator-tools hidden aria-label="Facilitator week jumps">
+          <span>Facilitator</span>
+          <button type="button" data-facilitator-route="census" onclick="window.hmFacilitatorJump?.('census'); return false;">Week 1</button>
+          <button type="button" data-facilitator-route="foundation" onclick="window.hmFacilitatorJump?.('foundation'); return false;">Week 2</button>
+          <button type="button" data-facilitator-route="architect" onclick="window.hmFacilitatorJump?.('architect'); return false;">Week 3</button>
+          <button type="button" data-facilitator-route="mechanic" onclick="window.hmFacilitatorJump?.('mechanic'); return false;">Week 4</button>
+          <button type="button" data-facilitator-route="locked" onclick="window.hmFacilitatorJump?.('locked'); return false;">Future</button>
+          <button type="button" data-facilitator-route="map-lab" onclick="window.hmFacilitatorJump?.('map-lab'); return false;">Living Map</button>
+          <button type="button" data-toggle-facilitator onclick="window.hmFacilitatorToggle?.(); return false;">Exit</button>
+        </nav>
+        <details class="neutral-out">
+          <summary>Facilitator</summary>
+          <div>
+            <a href="#census">Week 1</a>
+            <a href="#foundation">Week 2</a>
+            <a href="#architect">Week 3</a>
+            <a href="#mechanic">Week 4</a>
+            <a href="#locked">Future</a>
+            <a href="#map-lab">Living Map</a>
+          </div>
+        </details>
         <button id="top-back" class="top-back" type="button" hidden>Back</button>
       </header>
+      <aside id="facilitator-debug" class="facilitator-debug" hidden aria-label="Facilitator state"></aside>
 
       <main>
-        <section id="welcome" class="view welcome-view active" aria-labelledby="welcome-title">
+        <section id="activation" class="view activation-view active" aria-labelledby="activation-title">
+          <div class="activation-stage">
+            <video data-activation-video muted playsinline preload="auto" poster="./assets/kingdom-rises-poster.jpg" aria-label="Kingdom rising animation">
+              <source src="./assets/kingdom-rises-opening.mp4" type="video/mp4" />
+            </video>
+            <div class="activation-copy">
+              <h1 id="activation-title">The Kingdom is ready to rise.</h1>
+              <p>Begin the first activation, then enter the map.</p>
+              <button class="primary-action" type="button" data-activate-kingdom>Activate The Kingdom</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="welcome" class="view welcome-view" aria-labelledby="welcome-title">
           <div class="hero-copy">
-            <p class="eyebrow">The Heart Mechanic Blueprint</p>
             <h1 id="welcome-title">Begin mapping<br />the relationships<br />that shape your life.</h1>
             <p class="hero-subtitle">Start with the people who feel significant right now: those you love, those who challenge you, and those who still occupy emotional space. The map will deepen as the work unfolds.</p>
             <div class="hero-actions">
-              <button class="primary-action" data-route="census">Activate Mirror Lens</button>
+              <button id="current-stage-button" class="primary-action" type="button" data-current-stage>Activate Mirror Lens</button>
             </div>
             <details class="preview-tools">
               <summary>Preview tools</summary>
               <div>
                 <button class="secondary-action compact-action" data-route="design-lab">Column Design</button>
                 <button class="secondary-action compact-action" data-route="map-lab">The Living Map</button>
+                <button class="secondary-action compact-action" type="button" data-toggle-facilitator>Facilitator Mode</button>
+              </div>
+              <div class="facilitator-tools" data-facilitator-tools hidden>
+                <button class="secondary-action compact-action" data-facilitator-route="census">Week 1</button>
+                <button class="secondary-action compact-action" data-facilitator-route="foundation">Week 2</button>
+                <button class="secondary-action compact-action" data-facilitator-route="architect">Week 3</button>
+                <button class="secondary-action compact-action" data-facilitator-route="mechanic">Week 4</button>
               </div>
             </details>
           </div>
           <div class="hero-visual" aria-hidden="true">
             <img class="kingdom-hero-map" src="./assets/map-view-premium.jpg" alt="" />
           </div>
+          <div class="alias-panel panel">
+            <div>
+              <p class="eyebrow">Privacy aliases</p>
+              <h3>Share the map without exposing real names.</h3>
+              <p>Choose an alias library for this map. New relationships receive the next unused alias automatically, and each alias can still be edited by hand.</p>
+            </div>
+            <div class="alias-controls">
+              <label>
+                <span>Alias Library</span>
+                <select id="alias-library-select" data-alias-library>
+                  <option value="Nature">Nature</option>
+                  <option value="Celestial">Celestial</option>
+                  <option value="Greek Mythology">Greek Mythology</option>
+                  <option value="Navigation">Navigation</option>
+                </select>
+              </label>
+              <div class="name-toggle" role="group" aria-label="Name display">
+                <button data-name-mode="real">Private Real Names</button>
+                <button data-name-mode="alias">Demo / Share Aliases</button>
+              </div>
+            </div>
+          </div>
+          <datalist id="alias-options"></datalist>
           <div class="backup-panel">
             <div>
               <strong>Save Session</strong>
@@ -54,6 +118,9 @@
         </section>
 
         <section id="census" class="view" aria-labelledby="census-title">
+          <figure class="week-lens-hero">
+            <img src="./assets/week-1-mirror-lens.png" alt="" />
+          </figure>
           <div class="week-heading">
             <div>
               <p class="eyebrow">Week 1: Mirror Lens</p>
@@ -150,7 +217,7 @@
             <div class="hero-actions">
               <button class="primary-action" data-route="foundation">Next Week 2: Witness Lens</button>
               <button class="secondary-action" type="button" data-export-progress>Export Session</button>
-              <button class="secondary-action" data-route="census">Return to Mirror Lens</button>
+              <button class="secondary-action facilitator-only" data-route="census">Return to Mirror Lens</button>
             </div>
           </div>
           <div class="seal-visual" aria-hidden="true">
@@ -159,11 +226,14 @@
         </section>
 
         <section id="foundation" class="view" aria-labelledby="foundation-title">
+          <figure class="week-lens-hero">
+            <img src="./assets/week-2-witness-lens.png" alt="" />
+          </figure>
           <div class="week-heading">
             <div>
               <p class="eyebrow">Week 2: Witness Lens</p>
               <h2 id="foundation-title">Who are they in your world now?</h2>
-              <p>Add the relational context: private cast name, relationship type and current status. The Mirror signal stays visible.</p>
+              <p>Add the relational context: public alias, relationship type and current status. The Mirror signal stays visible.</p>
             </div>
             <div id="week-2-status" class="status-pill">Locked</div>
           </div>
@@ -183,8 +253,8 @@
           </div>
 
           <div class="name-toggle" role="group" aria-label="Name display">
-            <button data-name-mode="real">Show Real Names</button>
-            <button data-name-mode="cast">Show Cast Names</button>
+            <button data-name-mode="real">Private Real Names</button>
+            <button data-name-mode="alias">Demo / Share Aliases</button>
           </div>
 
           <div id="foundation-gate" class="locked-message"></div>
@@ -202,7 +272,7 @@
           <div id="foundation-list" class="foundation-list"></div>
 
           <div class="week-actions">
-            <button class="secondary-action" data-route="census">Back to Week 1</button>
+            <button class="secondary-action facilitator-only" data-route="census">Back to Week 1</button>
           </div>
         </section>
 
@@ -215,7 +285,7 @@
             <div class="hero-actions">
               <button class="primary-action" data-route="architect">Next Week 3: Architect Lens</button>
               <button class="secondary-action" type="button" data-export-progress>Export Session</button>
-              <button class="secondary-action" data-route="foundation">Return to Witness Lens</button>
+              <button class="secondary-action facilitator-only" data-route="foundation">Return to Witness Lens</button>
             </div>
           </div>
           <div class="seal-visual" aria-hidden="true">
@@ -224,6 +294,9 @@
         </section>
 
         <section id="architect" class="view" aria-labelledby="architect-title">
+          <figure class="week-lens-hero">
+            <img src="./assets/week-3-architect-lens.png" alt="" />
+          </figure>
           <div class="week-heading">
             <div>
               <p class="eyebrow">Week 3: Architect Lens</p>
@@ -261,7 +334,7 @@
           </div>
 
           <div class="week-actions">
-            <button class="primary-action" data-route="locked">View Locked Weeks</button>
+            <button class="primary-action facilitator-only" data-route="locked">View Locked Weeks</button>
           </div>
         </section>
 
@@ -272,7 +345,7 @@
             <p id="architect-complete-summary">You now have your first Kingdom Map.</p>
             <p>This is a living, breathing map. It will continue to change as your relationships change, and it can become a diagnostic tool you use for life.</p>
             <div class="hero-actions">
-              <button class="primary-action" data-route="architect">Open My Kingdom Map</button>
+              <button class="primary-action facilitator-only" data-route="architect">Open My Kingdom Map</button>
               <button class="secondary-action" data-route="mechanic">Begin Week 4: The Mechanic</button>
               <button class="secondary-action" type="button" data-export-progress>Export Session</button>
             </div>
@@ -293,18 +366,13 @@
           </div>
 
           <div id="mechanic-gate" class="locked-message"></div>
-          <div class="mechanic-hero-panel panel">
-            <img src="./assets/mechanic-lens-hero.png" alt="Architect Lens glass sphere" />
-            <div>
-              <p class="eyebrow">Architect Lens</p>
-              <h3>The work now moves beneath the surface.</h3>
-              <p>Notice what is rising, fading, unresolved, or ready to be moved.</p>
-            </div>
-          </div>
+          <figure class="week-lens-hero mechanic-lens-hero">
+            <img src="./assets/week-4-mechanics.png" alt="" />
+          </figure>
           <div id="mechanic-workspace" class="placement-board panel mechanic-workspace">
             <div class="placement-board-header">
               <div>
-                <h3>Mechanic Map</h3>
+                <h3>The Mechanics</h3>
                 <p>Move people between states, open profiles when detail matters, then reveal the architecture in The Living Map.</p>
               </div>
               <span id="mechanic-count" class="status-pill">0 placed</span>
@@ -314,7 +382,7 @@
 
           <div class="week-actions">
             <button class="primary-action" data-route="map-lab">View The Living Map</button>
-            <button class="secondary-action" data-route="architect">Back to Architect Map</button>
+            <button class="secondary-action facilitator-only" data-route="architect">Back to Architect Map</button>
           </div>
         </section>
 
@@ -531,6 +599,55 @@
       </form>
     </dialog>
 
-    <script src="./app.js"></script>
+    <script>
+      window.hmFacilitatorUnlocked = false;
+
+      window.hmShowRoute = function(route) {
+        document.querySelectorAll(".view").forEach((view) => {
+          view.classList.toggle("active", view.id === route);
+        });
+
+        const debug = document.querySelector("#facilitator-debug");
+        if (debug && window.hmFacilitatorUnlocked) {
+          debug.hidden = false;
+          debug.innerHTML = `<div><strong>Facilitator Mode</strong><span>Route: ${route}</span><span>Fallback navigation active</span></div>`;
+        }
+      };
+
+      window.hmFacilitatorToggle = function() {
+        if (!window.hmFacilitatorUnlocked) {
+          const code = window.prompt("Enter facilitator passcode");
+          if ((code || "").trim().toLowerCase() !== "mechanic") return false;
+          window.hmFacilitatorUnlocked = true;
+        } else {
+          window.hmFacilitatorUnlocked = false;
+        }
+
+        document.querySelectorAll("[data-facilitator-tools]").forEach((element) => {
+          element.hidden = !window.hmFacilitatorUnlocked;
+        });
+        document.querySelectorAll("[data-toggle-facilitator]").forEach((button) => {
+          button.textContent = window.hmFacilitatorUnlocked ? "Exit Facilitator Mode" : "Facilitator Mode";
+          button.classList.toggle("active", window.hmFacilitatorUnlocked);
+        });
+
+        const debug = document.querySelector("#facilitator-debug");
+        if (debug) {
+          debug.hidden = !window.hmFacilitatorUnlocked;
+          debug.innerHTML = window.hmFacilitatorUnlocked
+            ? "<div><strong>Facilitator Mode</strong><span>Unlocked</span><span>Fallback navigation active</span></div>"
+            : "";
+        }
+
+        return true;
+      };
+
+      window.hmFacilitatorJump = function(route) {
+        if (!window.hmFacilitatorUnlocked && !window.hmFacilitatorToggle()) return false;
+        window.hmShowRoute(route);
+        return true;
+      };
+    </script>
+    <script src="./app.js?v=20260616-map-logo-clear"></script>
   </body>
 </html>

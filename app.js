@@ -2,11 +2,41 @@ const STORAGE_KEY = "heart-mechanic-mvp1-v1";
 const BACKUP_VERSION = 1;
 const MAP_TRANSITION_PLAYBACK_RATE = 2;
 
+const aliasLibraries = {
+  Nature: [
+    "Ash", "Birch", "Cedar", "Clover", "Elm", "Fern", "Hawthorn", "Iris", "Juniper", "Laurel",
+    "Maple", "Moss", "Oak", "Olive", "Reed", "River", "Rowan", "Sage", "Stone", "Willow",
+    "Wren", "Rose", "Briar", "Meadow", "Rain", "Thorn", "Vale", "Bloom", "Harbor", "Ember"
+  ],
+  Celestial: [
+    "Altair", "Andromeda", "Antares", "Astra", "Aurora", "Callisto", "Celeste", "Deneb", "Europa", "Halley",
+    "Luna", "Lyra", "Mercury", "Mira", "Nebula", "Neptune", "Nova", "Orion", "Polaris", "Rigel",
+    "Selene", "Sirius", "Sol", "Stella", "Titan", "Vega", "Venus", "Vesta", "Zenith", "Cosmos"
+  ],
+  "Greek Mythology": [
+    "Athena", "Apollo", "Artemis", "Hera", "Hermes", "Hestia", "Demeter", "Persephone", "Iris", "Helios",
+    "Selene", "Eos", "Orion", "Atlas", "Calliope", "Clio", "Daphne", "Echo", "Gaia", "Nike",
+    "Nyx", "Rhea", "Themis", "Thalia", "Asteria", "Circe", "Electra", "Leto", "Maia", "Phoebe"
+  ],
+  Navigation: [
+    "Anchor", "Beacon", "Bearing", "Bridge", "Compass", "Harbor", "Horizon", "Keel", "Lantern", "Longitude",
+    "Mariner", "Meridian", "North", "Pilot", "Port", "Rudder", "Signal", "Sounding", "Starboard", "Tide",
+    "Vessel", "Waypoint", "West", "Current", "Channel", "Chart", "Crossing", "Drift", "Sextant", "Wake"
+  ]
+};
+
 const relationshipTypes = ["Family", "Friend", "Ex-Partner", "Romantic", "Work", "Neighbour", "Mentor", "Community", "Other"];
 const energeticOrientations = ["Grounded", "Activated", "Unclear"];
 const currentStatuses = ["Active", "Distant", "Disconnected"];
 const architectPlacements = ["Inner Counsel", "Knights", "Nobles", "Courtiers", "Villagers", "Out of Kingdom"];
 const mechanicPlacements = ["Inner Counsel", "Knights", "Nobles", "Noble Fading", "Courtiers", "Villagers", "The Hold", "Out of Kingdom"];
+const stageRoutes = ["census", "foundation", "architect", "mechanic"];
+const stageLabels = {
+  census: "Activate Mirror Lens",
+  foundation: "Continue Witness Lens",
+  architect: "Open Architect Map",
+  mechanic: "Open Week 4: The Mechanic"
+};
 const placements = architectPlacements;
 const allPlacements = Array.from(new Set([...architectPlacements, ...mechanicPlacements]));
 const knightStatuses = ["Active", "Rising"];
@@ -30,8 +60,8 @@ const placementSealAssets = {
   "Noble Fading": "./assets/seal-noble-fading.png",
   Courtiers: "./assets/seal-courtiers.png",
   Villagers: "./assets/seal-villagers.png",
-  "The Hold": "./assets/seal-hold.png",
-  "Out of Kingdom": "./assets/seal-out-of-kingdom.png"
+  "The Hold": "./assets/seal-unmapped.png",
+  "Out of Kingdom": "./assets/seal-unmapped.png"
 };
 
 const sampleNames = [
@@ -49,14 +79,15 @@ let state = loadState();
 let pendingImport = [];
 let activeCensusId = null;
 let censusDrag = null;
-let nameMode = "real";
+let nameMode = state.settings?.shareMode ? "alias" : "real";
 let selectedSphereId = null;
 let activeProfileId = null;
 let activeProfileReturnRoute = "architect";
-let currentRoute = "welcome";
+let currentRoute = "activation";
 let routeHistory = [];
 let mapTransitionTimer = null;
 let mirrorSignalStage = false;
+let activationPlaying = false;
 
 const views = document.querySelectorAll(".view");
 const navButtons = document.querySelectorAll("[data-route]");
@@ -72,6 +103,77 @@ function makeId() {
 
 function defaultSeals() {
   return { mirror: false, witness: false, architect: false };
+}
+
+function defaultSettings() {
+  return { aliasLibrary: "Nature", shareMode: false, activeStage: "census", facilitatorMode: false };
+}
+
+function normalizeSettings(settings = {}) {
+  const defaults = defaultSettings();
+  const aliasLibrary = aliasLibraries[settings.aliasLibrary] ? settings.aliasLibrary : defaults.aliasLibrary;
+  const activeStage = stageRoutes.includes(settings.activeStage) ? settings.activeStage : defaults.activeStage;
+  return {
+    ...defaults,
+    ...settings,
+    aliasLibrary,
+    activeStage,
+    shareMode: Boolean(settings.shareMode),
+    facilitatorMode: Boolean(settings.facilitatorMode)
+  };
+}
+
+function stageIndex(stage) {
+  return stageRoutes.indexOf(stage);
+}
+
+function inferredActiveStage(seals = {}) {
+  if (seals.architect) return "mechanic";
+  if (seals.witness) return "architect";
+  if (seals.mirror) return "foundation";
+  return "census";
+}
+
+function reconcileActiveStage(settings, seals = {}) {
+  const normalized = normalizeSettings(settings);
+  const inferred = inferredActiveStage(seals);
+  return {
+    ...normalized,
+    activeStage: stageIndex(normalized.activeStage) >= stageIndex(inferred) ? normalized.activeStage : inferred
+  };
+}
+
+function stripSessionOnlySettings(settings) {
+  return normalizeSettings({ ...settings, facilitatorMode: false });
+}
+
+function currentActiveStage() {
+  state.settings = reconcileActiveStage(state.settings, state.seals);
+  return state.settings.activeStage;
+}
+
+function isFacilitatorMode() {
+  return Boolean(state.settings?.facilitatorMode);
+}
+
+function unlockFacilitatorMode() {
+  if (isFacilitatorMode()) return true;
+  const code = window.prompt("Enter facilitator passcode");
+  if ((code || "").trim().toLowerCase() !== "mechanic") return false;
+  state.settings = normalizeSettings({ ...state.settings, facilitatorMode: true });
+  saveAndRender();
+  return true;
+}
+
+function toggleFacilitatorMode() {
+  if (!isFacilitatorMode()) {
+    return unlockFacilitatorMode();
+  }
+
+  state.settings = normalizeSettings({ ...state.settings, facilitatorMode: false });
+  saveAndRender();
+  setRoute(currentRoute, false);
+  return true;
 }
 
 function inferSeals(contacts, savedSeals = {}) {
@@ -93,24 +195,30 @@ function loadState() {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
+      const initialSettings = normalizeSettings(parsed.settings);
       const contacts = (parsed.contacts || []).map(normalizeContact);
+      ensureAliases(contacts, initialSettings.aliasLibrary);
+      const seals = inferSeals(contacts, parsed.seals);
+      const settings = stripSessionOnlySettings(reconcileActiveStage(parsed.settings, seals));
       return {
         contacts,
         censusHistory: parsed.censusHistory || [],
         lastSavedAt: parsed.lastSavedAt || "",
-        seals: inferSeals(contacts, parsed.seals)
+        seals,
+        settings
       };
     } catch (error) {
       console.warn("Could not load saved state", error);
     }
   }
-  return { contacts: [], censusHistory: [], lastSavedAt: "", seals: defaultSeals() };
+  return { contacts: [], censusHistory: [], lastSavedAt: "", seals: defaultSeals(), settings: defaultSettings() };
 }
 
 function saveState() {
   state.seals = { ...defaultSeals(), ...(state.seals || {}) };
+  state.settings = reconcileActiveStage(state.settings, state.seals);
   state.lastSavedAt = new Date().toISOString();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, settings: stripSessionOnlySettings(state.settings) }));
   renderLastSaved();
 }
 
@@ -127,6 +235,7 @@ function backupPayload() {
     contacts: state.contacts.map(normalizeContact),
     censusHistory: state.censusHistory || [],
     seals: { ...defaultSeals(), ...(state.seals || {}) },
+    settings: stripSessionOnlySettings(state.settings),
     lastSavedAt: state.lastSavedAt || ""
   };
 }
@@ -164,13 +273,19 @@ async function restoreProgress(file) {
   const confirmed = window.confirm("Restore this backup? This will replace the progress currently stored in this browser.");
   if (!confirmed) return;
 
+  const initialSettings = normalizeSettings(parsed.settings);
   const contacts = parsed.contacts.map(normalizeContact);
+  ensureAliases(contacts, initialSettings.aliasLibrary);
+  const seals = inferSeals(contacts, parsed.seals);
+  const settings = stripSessionOnlySettings(reconcileActiveStage(parsed.settings, seals));
   state = {
     contacts,
     censusHistory: Array.isArray(parsed.censusHistory) ? parsed.censusHistory : [],
     lastSavedAt: parsed.lastSavedAt || "",
-    seals: inferSeals(contacts, parsed.seals)
+    seals,
+    settings
   };
+  nameMode = state.settings.shareMode ? "alias" : "real";
   saveAndRender();
   routeHistory = [];
   setRoute("welcome");
@@ -189,19 +304,122 @@ function renderLastSaved() {
 
 function normalizeContact(contact) {
   const status = contact.censusStatus || (typeof contact.includedInKingdom === "boolean" ? (contact.includedInKingdom ? "inside" : "outside") : "outside");
+  const realName = (contact.realName || contact.real_name || contact.name || "Unnamed Contact").trim() || "Unnamed Contact";
+  const alias = (contact.alias || contact.publicAlias || contact.public_alias || contact.castName || "").trim();
+  const hasAliasManualFlag = Object.prototype.hasOwnProperty.call(contact, "aliasManual") || Object.prototype.hasOwnProperty.call(contact, "alias_manual");
+  const aliasManual = hasAliasManualFlag ? Boolean(contact.aliasManual || contact.alias_manual) : Boolean(alias && !contact.aliasAutoAssigned);
   return {
     id: contact.id || makeId(),
-    name: (contact.name || "Unnamed Contact").trim() || "Unnamed Contact",
+    name: realName,
+    realName,
+    alias,
+    aliasManual,
     censusStatus: ["inside", "outside", "skipped", "candidate"].includes(status) ? status : "outside",
     includedInKingdom: status === "inside" ? true : status === "outside" ? false : null,
     relationshipType: contact.relationshipType || "",
     energeticOrientation: normalizeEnergeticOrientation(contact.energeticOrientation),
-    castName: contact.castName || "",
+    castName: alias,
     currentStatus: contact.currentStatus || "",
     placement: allPlacements.includes(contact.placement) ? contact.placement : "",
+    holdPlacement: allPlacements.includes(contact.holdPlacement) && contact.holdPlacement !== "The Hold" ? contact.holdPlacement : "",
     knightStatus: knightStatuses.includes(contact.knightStatus) ? contact.knightStatus : "Active",
     nobleStatus: nobleStatuses.includes(contact.nobleStatus) ? contact.nobleStatus : "Active"
   };
+}
+
+function currentAliasLibrary() {
+  return normalizeSettings(state.settings).aliasLibrary;
+}
+
+function aliasesForLibrary(libraryName = currentAliasLibrary()) {
+  return aliasLibraries[libraryName] || aliasLibraries[defaultSettings().aliasLibrary];
+}
+
+function nextUnusedAlias(usedAliases, libraryName = currentAliasLibrary()) {
+  const library = aliasesForLibrary(libraryName);
+  const found = library.find((alias) => !usedAliases.has(alias.toLowerCase()));
+  if (found) return found;
+
+  let index = library.length + 1;
+  let fallback = `${libraryName} ${index}`;
+  while (usedAliases.has(fallback.toLowerCase())) {
+    index += 1;
+    fallback = `${libraryName} ${index}`;
+  }
+  return fallback;
+}
+
+function ensureAliases(contacts = state.contacts, libraryName = currentAliasLibrary(), options = {}) {
+  const used = new Set();
+  contacts.forEach((contact) => {
+    if (contact.alias && (contact.aliasManual || !options.replaceAuto)) {
+      used.add(contact.alias.toLowerCase());
+    }
+  });
+
+  contacts.forEach((contact) => {
+    if (contact.alias && contact.aliasManual) return;
+    if (contact.alias && !options.replaceAuto) {
+      used.add(contact.alias.toLowerCase());
+      return;
+    }
+
+    const alias = nextUnusedAlias(used, libraryName);
+    contact.alias = alias;
+    contact.castName = alias;
+    contact.aliasManual = false;
+    used.add(alias.toLowerCase());
+  });
+}
+
+function prepareIncomingContacts(contacts) {
+  const incoming = contacts.map(normalizeContact);
+  const used = new Set(state.contacts.map((contact) => contact.alias).filter(Boolean).map((alias) => alias.toLowerCase()));
+  incoming.forEach((contact) => {
+    if (!contact.alias) {
+      const alias = nextUnusedAlias(used);
+      contact.alias = alias;
+      contact.castName = alias;
+      contact.aliasManual = false;
+    }
+    used.add(contact.alias.toLowerCase());
+  });
+  return incoming;
+}
+
+function updateContactField(contact, field, value) {
+  if (field === "placement") {
+    setContactPlacement(contact, value);
+    return;
+  }
+
+  contact[field] = value;
+
+  if (field === "name" || field === "realName") {
+    contact.name = value.trim() || "Unnamed Contact";
+    contact.realName = contact.name;
+  }
+
+  if (field === "alias" || field === "castName") {
+    contact.alias = value.trim();
+    contact.castName = contact.alias;
+    contact.aliasManual = Boolean(contact.alias);
+  }
+}
+
+function setContactPlacement(contact, placement) {
+  const nextPlacement = allPlacements.includes(placement) ? placement : "";
+  const previousPlacement = allPlacements.includes(contact.placement) ? contact.placement : "";
+
+  if (nextPlacement === "The Hold" && previousPlacement && previousPlacement !== "The Hold") {
+    contact.holdPlacement = previousPlacement;
+  }
+
+  if (nextPlacement && nextPlacement !== "The Hold") {
+    contact.holdPlacement = "";
+  }
+
+  contact.placement = nextPlacement;
 }
 
 function normalizeEnergeticOrientation(value) {
@@ -217,12 +435,13 @@ function contactSignature(contact) {
 function uniqueIncomingContacts(contacts) {
   const existing = new Set(state.contacts.map(contactSignature));
   const seen = new Set();
-  return contacts.map(normalizeContact).filter((contact) => {
+  const unique = contacts.map(normalizeContact).filter((contact) => {
     const signature = contactSignature(contact);
     if (existing.has(signature) || seen.has(signature)) return false;
     seen.add(signature);
     return true;
   });
+  return prepareIncomingContacts(unique);
 }
 
 function initials(name) {
@@ -280,20 +499,32 @@ function isWeek3Complete() {
 
 function markSeal(seal) {
   state.seals = { ...defaultSeals(), ...(state.seals || {}), [seal]: true };
+  const nextStage = { mirror: "foundation", witness: "architect", architect: "mechanic" }[seal];
+  if (nextStage) {
+    state.settings = normalizeSettings({ ...state.settings, activeStage: nextStage });
+  }
   saveState();
 }
 
-function setRoute(route, trackHistory = true) {
-  if (route === "mirror-complete" && !isMirrorReady() && !state.seals?.mirror) route = "census";
-  if (route === "witness-complete" && !isWitnessReady() && !state.seals?.witness) route = "foundation";
-  if (route === "architect-complete" && !isArchitectReady() && !state.seals?.architect) route = "architect";
+function setRoute(route, trackHistory = true, options = {}) {
+  const facilitatorBypass = Boolean(options.facilitatorBypass || isFacilitatorMode());
+  if (route === "activation") {
+    activationPlaying = false;
+  }
+  const clientWorkspaceRoutes = new Set(stageRoutes);
+  if (!facilitatorBypass && route === "mirror-complete" && !isMirrorReady() && !state.seals?.mirror) route = "census";
+  if (!facilitatorBypass && route === "witness-complete" && !isWitnessReady() && !state.seals?.witness) route = "foundation";
+  if (!facilitatorBypass && route === "architect-complete" && !isArchitectReady() && !state.seals?.architect) route = "architect";
   if (route === "person-profile" && !activeProfileId) route = "architect";
-  if (route === "foundation" && !isWeek1Complete()) route = "census";
-  if (route === "architect" && !isWeek2Complete()) route = "foundation";
-  if (route === "mechanic" && !isWeek3Complete()) route = "architect";
+  if (!facilitatorBypass && route === "foundation" && !isWeek1Complete()) route = "census";
+  if (!facilitatorBypass && route === "architect" && !isWeek2Complete()) route = "foundation";
+  if (!facilitatorBypass && route === "mechanic" && !isWeek3Complete()) route = "architect";
   if (route === "mirror-complete" && isMirrorReady()) markSeal("mirror");
   if (route === "witness-complete" && isWitnessReady()) markSeal("witness");
   if (route === "architect-complete" && isArchitectReady()) markSeal("architect");
+  if (!facilitatorBypass && clientWorkspaceRoutes.has(route) && stageIndex(route) < stageIndex(currentActiveStage())) {
+    route = currentActiveStage();
+  }
   if (trackHistory && route !== currentRoute) {
     routeHistory.push(currentRoute);
   }
@@ -303,8 +534,19 @@ function setRoute(route, trackHistory = true) {
   if (mapLab && route === "map-lab") resetMapTransition();
   if (mapLab && route !== "map-lab") clearMapTransitionTimer();
   renderTopBack();
+  renderFacilitatorDebug();
   if (route === "census") renderCensusCard();
   if (route === "person-profile") renderProfile();
+}
+
+function setFacilitatorRoute(route) {
+  setRoute(route, true, { facilitatorBypass: true });
+}
+
+function jumpFacilitatorRoute(route) {
+  if (!unlockFacilitatorMode()) return false;
+  setFacilitatorRoute(route);
+  return true;
 }
 
 function clearMapTransitionTimer() {
@@ -343,6 +585,28 @@ function revealMapView() {
   document.querySelector("#map-lab")?.classList.add("map-revealed");
 }
 
+function playActivationTrailer() {
+  const activation = document.querySelector("#activation");
+  const video = document.querySelector("[data-activation-video]");
+  if (!activation || !video || activationPlaying) return;
+
+  activationPlaying = true;
+  activation.classList.remove("activation-complete");
+  activation.classList.add("activation-playing");
+  video.pause();
+  video.currentTime = 0;
+  video.playbackRate = 1;
+  video.onended = () => {
+    activation.classList.add("activation-complete");
+    window.setTimeout(() => setRoute("census", false, { facilitatorBypass: true }), 460);
+  };
+
+  const playPromise = video.play();
+  if (playPromise) {
+    playPromise.catch(() => setRoute("census", false, { facilitatorBypass: true }));
+  }
+}
+
 function goBack() {
   const fallback = currentRoute === "welcome" ? "welcome" : "welcome";
   const previousRoute = routeHistory.pop() || fallback;
@@ -356,7 +620,7 @@ function renderTopBack() {
 }
 
 function displayName(contact) {
-  return nameMode === "cast" && contact.castName ? contact.castName : contact.name;
+  return nameMode === "alias" && contact.alias ? contact.alias : contact.name;
 }
 
 function miniSphere(contact) {
@@ -366,9 +630,17 @@ function miniSphere(contact) {
 }
 
 function placementSealFor(contact) {
-  if (contact?.placement === "Knights" && contact?.knightStatus === "Rising") return "./assets/seal-knight-rising.png";
-  if (contact?.placement === "Nobles" && contact?.nobleStatus === "Legacy") return "./assets/seal-noble-legacy.png";
-  return placementSealAssets[contact?.placement || ""] || placementSealAssets[""];
+  if (contact?.placement === "The Hold") {
+    return placementSealForPlacement(contact, contact.holdPlacement) || placementSealAssets[""];
+  }
+  return placementSealForPlacement(contact, contact?.placement);
+}
+
+function placementSealForPlacement(contact, placement) {
+  if (placement === "Knights" && contact?.knightStatus === "Rising") return "./assets/seal-knight-rising.png";
+  if (placement === "Nobles" && contact?.nobleStatus === "Legacy") return "./assets/seal-noble-legacy.png";
+  if (placement === "The Hold") return placementSealAssets[""];
+  return placementSealAssets[placement || ""] || placementSealAssets[""];
 }
 
 function placementSealMarkup(contact, className = "mini-seal") {
@@ -450,9 +722,9 @@ function renderCensusCard() {
   censusCard.style.opacity = "";
   censusCard.innerHTML = `
     <div>
-      <div class="sphere-avatar">${escapeHtml(initials(contact.name))}</div>
+      <div class="sphere-avatar">${escapeHtml(initials(displayName(contact)))}</div>
       <p class="eyebrow">Selected for review</p>
-      <h3>${escapeHtml(contact.name)}</h3>
+      <h3>${escapeHtml(displayName(contact))}</h3>
       <p>Only keep them In if they are active in your life now, or significant to your past, good or bad.</p>
     </div>
     <span class="skip-cue">Skip</span>
@@ -494,7 +766,6 @@ function decideCensus(decision) {
   if (status !== "inside") {
     contact.relationshipType = "";
     contact.energeticOrientation = "";
-    contact.castName = "";
     contact.currentStatus = "";
     contact.placement = "";
   }
@@ -522,7 +793,6 @@ function undoLastCensusDecision() {
     contact.includedInKingdom = null;
     contact.relationshipType = "";
     contact.energeticOrientation = "";
-    contact.castName = "";
     contact.currentStatus = "";
     contact.placement = "";
     saveAndRender();
@@ -549,7 +819,7 @@ function renderPopulation() {
       <article class="person-row ${contact.censusStatus === "candidate" ? "selected" : ""}" data-toggle-candidate="${contact.id}">
         ${miniSphere(contact)}
         <div class="person-main">
-          <strong>${escapeHtml(contact.name)}</strong>
+          <strong>${escapeHtml(displayName(contact))}</strong>
           <span>${censusLabel(contact)}</span>
         </div>
         <div class="row-actions">
@@ -593,9 +863,9 @@ function renderMirrorOverview() {
         <article class="overview-row mirror-row">
           <div class="overview-name">
             ${miniSphere(contact)}
-            <strong>${escapeHtml(contact.name)}</strong>
+            <strong>${escapeHtml(displayName(contact))}</strong>
           </div>
-          <div class="pill-group" role="group" aria-label="Energetic orientation for ${escapeAttribute(contact.name)}">
+          <div class="pill-group" role="group" aria-label="Energetic orientation for ${escapeAttribute(displayName(contact))}">
             ${energeticOrientations.map((orientation) => `
               <button type="button" class="tag-pill ${contact.energeticOrientation === orientation ? "active" : ""}" data-contact-field="${contact.id}" data-field="energeticOrientation" data-value="${orientation}">
                 ${orientation}
@@ -669,8 +939,8 @@ function renderWitnessOverview() {
   document.querySelector("#witness-overview").innerHTML = members.length
     ? `
       <div class="overview-header witness-header">
-        <span class="sticky-name-cell">Real Name</span>
-        <span>Private Cast Name</span>
+        <span class="sticky-name-cell">Display Name</span>
+        <span>Public Alias</span>
         <span>Relationship</span>
         <span>Energy</span>
         <span>Current Status</span>
@@ -679,9 +949,9 @@ function renderWitnessOverview() {
         <article class="overview-row witness-row">
           <div class="overview-name sticky-name-cell">
             ${miniSphere(contact)}
-            <strong>${escapeHtml(contact.name)}</strong>
+            <strong>${escapeHtml(displayName(contact))}</strong>
           </div>
-          <input data-foundation="${contact.id}" data-field="castName" value="${escapeAttribute(contact.castName)}" placeholder="Athena" />
+          <input data-foundation="${contact.id}" data-field="alias" value="${escapeAttribute(contact.alias)}" placeholder="Athena" list="alias-options" />
           <select data-foundation="${contact.id}" data-field="relationshipType">
             <option value="">Choose</option>
             ${relationshipTypes.map((type) => `<option value="${type}" ${contact.relationshipType === type ? "selected" : ""}>${type}</option>`).join("")}
@@ -811,7 +1081,7 @@ function placementCardMarkup(contact, options = {}) {
     contact.relationshipType,
     contact.energeticOrientation,
     contact.currentStatus,
-    contact.castName ? `Cast: ${contact.castName}` : ""
+    contact.alias ? `Alias: ${contact.alias}` : ""
   ].filter(Boolean).join(" · ");
   return `
     <article class="placement-person ${premium} ${selected} ${contact.placement === "Nobles" && contact.nobleStatus === "Legacy" ? "noble-legacy-card" : ""} ${contact.placement === "Noble Fading" ? "noble-fading-card" : ""} ${contact.placement === "Knights" && contact.knightStatus === "Rising" ? "knight-rising-card" : ""}" data-contact="${contact.id}" draggable="true">
@@ -831,7 +1101,7 @@ function renderProfile() {
 
   const contact = state.contacts.find((item) => item.id === activeProfileId);
   const returnRoute = activeProfileReturnRoute === "mechanic" ? "mechanic" : "architect";
-  const returnLabel = returnRoute === "mechanic" ? "Back to Mechanic Map" : "Back to Architect Lens";
+  const returnLabel = returnRoute === "mechanic" ? "Back to The Mechanics" : "Back to Architect Lens";
   const profilePlacements = returnRoute === "mechanic" ? mechanicPlacements : architectPlacements;
   if (!contact) {
     shell.innerHTML = `
@@ -858,15 +1128,15 @@ function renderProfile() {
       <div class="panel profile-panel">
         <div class="panel-title">
           <h3>Identity</h3>
-          <p>Use the real name for clarity and the cast name for session conversation.</p>
+          <p>Keep the real name private. Use the public alias for demo, share or group conversation.</p>
         </div>
         <label>
-          <span>Real Name</span>
+          <span>Private Real Name</span>
           <input data-profile="${contact.id}" data-field="name" value="${escapeAttribute(contact.name)}" />
         </label>
         <label>
-          <span>Private Cast Name</span>
-          <input data-profile="${contact.id}" data-field="castName" value="${escapeAttribute(contact.castName)}" placeholder="Athena" />
+          <span>Public Alias</span>
+          <input data-profile="${contact.id}" data-field="alias" value="${escapeAttribute(contact.alias)}" placeholder="Athena" list="alias-options" />
         </label>
       </div>
 
@@ -994,7 +1264,7 @@ function renderImportPreview() {
           <article class="preview-contact">
             ${miniSphere(contact)}
             <div class="person-main">
-              <strong>${escapeHtml(contact.name)}</strong>
+              <strong>${escapeHtml(displayName(contact))}</strong>
               <span>Added as background memory aid</span>
             </div>
           </article>
@@ -1019,6 +1289,7 @@ function parseAirtablePaste(text) {
 }
 
 function renderAll() {
+  renderAliasSettings();
   renderProgress();
   renderLastSaved();
   renderCensusCard();
@@ -1031,6 +1302,68 @@ function renderAll() {
   renderArchitectComplete();
   renderMechanic();
   renderProfile();
+  renderFacilitatorDebug();
+}
+
+function renderAliasSettings() {
+  state.settings = normalizeSettings(state.settings);
+  nameMode = state.settings.shareMode ? "alias" : "real";
+  const activeStage = currentActiveStage();
+
+  const currentStageButton = document.querySelector("[data-current-stage]");
+  if (currentStageButton) {
+    currentStageButton.textContent = stageLabels[activeStage] || "Continue Mapping";
+  }
+
+  document.querySelectorAll("[data-toggle-facilitator]").forEach((button) => {
+    button.textContent = isFacilitatorMode() ? "Exit Facilitator Mode" : "Facilitator Mode";
+    button.classList.toggle("active", isFacilitatorMode());
+  });
+
+  document.querySelectorAll("[data-facilitator-tools]").forEach((element) => {
+    element.hidden = !isFacilitatorMode();
+  });
+
+  document.querySelectorAll(".facilitator-only").forEach((element) => {
+    element.hidden = !isFacilitatorMode();
+  });
+
+  document.querySelectorAll("[data-name-mode]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.nameMode === nameMode);
+  });
+
+  document.querySelectorAll("[data-alias-library]").forEach((select) => {
+    select.value = state.settings.aliasLibrary;
+  });
+
+  const datalist = document.querySelector("#alias-options");
+  if (datalist) {
+    datalist.innerHTML = aliasesForLibrary(state.settings.aliasLibrary)
+      .map((alias) => `<option value="${escapeAttribute(alias)}"></option>`)
+      .join("");
+  }
+}
+
+function renderFacilitatorDebug() {
+  const debug = document.querySelector("#facilitator-debug");
+  if (!debug) return;
+
+  debug.hidden = !isFacilitatorMode();
+  if (debug.hidden) {
+    debug.innerHTML = "";
+    return;
+  }
+
+  const seals = { ...defaultSeals(), ...(state.seals || {}) };
+  debug.innerHTML = `
+    <div>
+      <strong>Facilitator Mode</strong>
+      <span>Route: ${escapeHtml(currentRoute)}</span>
+      <span>Active week: ${escapeHtml(currentActiveStage())}</span>
+      <span>Seals: Mirror ${seals.mirror ? "on" : "off"} · Witness ${seals.witness ? "on" : "off"} · Architect ${seals.architect ? "on" : "off"}</span>
+      <span>People: ${state.contacts.length}</span>
+    </div>
+  `;
 }
 
 function addManualContact(name) {
@@ -1183,10 +1516,6 @@ function escapeAttribute(value) {
   return escapeHtml(value).replaceAll("`", "&#096;");
 }
 
-navButtons.forEach((button) => {
-  button.addEventListener("click", () => setRoute(button.dataset.route));
-});
-
 document.querySelectorAll("[data-load-samples]").forEach((button) => {
   button.addEventListener("click", loadSamples);
 });
@@ -1260,7 +1589,8 @@ document.querySelectorAll("[data-reset]").forEach((button) => {
     const confirmed = window.confirm("Reset this map and clear the saved session on this browser?");
     if (!confirmed) return;
     localStorage.removeItem(STORAGE_KEY);
-    state = { contacts: [], censusHistory: [], lastSavedAt: "", seals: defaultSeals() };
+    state = { contacts: [], censusHistory: [], lastSavedAt: "", seals: defaultSeals(), settings: defaultSettings() };
+    nameMode = "real";
     routeHistory = [];
     mirrorSignalStage = false;
     saveAndRender();
@@ -1283,9 +1613,33 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const activateKingdom = event.target.closest("[data-activate-kingdom]");
+  if (activateKingdom) {
+    playActivationTrailer();
+    return;
+  }
+
+  const currentStageButton = event.target.closest("[data-current-stage]");
+  if (currentStageButton) {
+    setRoute(currentActiveStage());
+    return;
+  }
+
+  const facilitatorToggle = event.target.closest("[data-toggle-facilitator]");
+  if (facilitatorToggle) {
+    toggleFacilitatorMode();
+    return;
+  }
+
+  const facilitatorRouteButton = event.target.closest("[data-facilitator-route]");
+  if (facilitatorRouteButton) {
+    jumpFacilitatorRoute(facilitatorRouteButton.dataset.facilitatorRoute);
+    return;
+  }
+
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
-    setRoute(routeButton.dataset.route);
+    setRoute(routeButton.dataset.route, true, { facilitatorBypass: isFacilitatorMode() });
     return;
   }
 
@@ -1342,7 +1696,6 @@ document.addEventListener("click", (event) => {
       contact.includedInKingdom = false;
       contact.relationshipType = "";
       contact.energeticOrientation = "";
-      contact.castName = "";
       contact.currentStatus = "";
       contact.placement = "";
       saveAndRender();
@@ -1368,7 +1721,6 @@ document.addEventListener("click", (event) => {
       if (nextStatus !== "candidate") {
         contact.relationshipType = "";
         contact.energeticOrientation = "";
-        contact.castName = "";
         contact.currentStatus = "";
         contact.placement = "";
       }
@@ -1379,6 +1731,8 @@ document.addEventListener("click", (event) => {
   const nameToggle = event.target.closest("[data-name-mode]");
   if (nameToggle) {
     nameMode = nameToggle.dataset.nameMode;
+    state.settings = normalizeSettings({ ...state.settings, shareMode: nameMode === "alias" });
+    saveState();
     renderAll();
   }
 
@@ -1394,7 +1748,7 @@ document.addEventListener("click", (event) => {
   if (placementColumn && selectedSphereId && !placementPerson) {
     const contact = state.contacts.find((item) => item.id === selectedSphereId);
     if (contact) {
-      contact.placement = placementColumn.dataset.placement;
+      setContactPlacement(contact, placementColumn.dataset.placement);
       selectedSphereId = null;
       saveAndRender();
     }
@@ -1406,7 +1760,7 @@ document.addEventListener("input", (event) => {
   if (profileField) {
     const contact = state.contacts.find((item) => item.id === profileField.dataset.profile);
     if (!contact) return;
-    contact[profileField.dataset.field] = profileField.value;
+    updateContactField(contact, profileField.dataset.field, profileField.value);
     saveState();
     return;
   }
@@ -1415,16 +1769,24 @@ document.addEventListener("input", (event) => {
   if (!field) return;
   const contact = state.contacts.find((item) => item.id === field.dataset.foundation);
   if (!contact) return;
-  contact[field.dataset.field] = field.value;
+  updateContactField(contact, field.dataset.field, field.value);
   saveState();
 });
 
 document.addEventListener("change", (event) => {
+  const aliasLibrary = event.target.closest("[data-alias-library]");
+  if (aliasLibrary) {
+    state.settings = normalizeSettings({ ...state.settings, aliasLibrary: aliasLibrary.value });
+    ensureAliases(state.contacts, state.settings.aliasLibrary, { replaceAuto: true });
+    saveAndRender();
+    return;
+  }
+
   const profileField = event.target.closest("[data-profile]");
   if (profileField) {
     const contact = state.contacts.find((item) => item.id === profileField.dataset.profile);
     if (!contact) return;
-    contact[profileField.dataset.field] = profileField.value;
+    updateContactField(contact, profileField.dataset.field, profileField.value);
     saveAndRender();
     return;
   }
@@ -1433,7 +1795,7 @@ document.addEventListener("change", (event) => {
   if (mechanicField) {
     const contact = state.contacts.find((item) => item.id === mechanicField.dataset.mechanic);
     if (!contact) return;
-    contact[mechanicField.dataset.field] = mechanicField.value;
+    updateContactField(contact, mechanicField.dataset.field, mechanicField.value);
     saveAndRender();
     return;
   }
@@ -1442,9 +1804,12 @@ document.addEventListener("change", (event) => {
   if (!field) return;
   const contact = state.contacts.find((item) => item.id === field.dataset.foundation);
   if (!contact) return;
-  contact[field.dataset.field] = field.value;
+  updateContactField(contact, field.dataset.field, field.value);
   saveAndRender();
 });
+
+window.toggleFacilitatorMode = toggleFacilitatorMode;
+window.jumpFacilitatorRoute = jumpFacilitatorRoute;
 
 if (censusCard) {
   censusCard.addEventListener("pointerdown", (event) => {
@@ -1508,7 +1873,7 @@ document.addEventListener("drop", (event) => {
   column.classList.remove("drag-over");
   const contact = state.contacts.find((item) => item.id === event.dataTransfer.getData("text/plain"));
   if (!contact) return;
-  contact.placement = column.dataset.placement;
+  setContactPlacement(contact, column.dataset.placement);
   selectedSphereId = null;
   saveAndRender();
 });
