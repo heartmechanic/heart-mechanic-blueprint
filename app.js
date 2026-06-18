@@ -53,15 +53,15 @@ const placementDescriptions = {
   "Out of Kingdom": "People who sit outside your current relational structure and require little or no access."
 };
 const placementSealAssets = {
-  "": "./assets/seal-unmapped.png",
-  "Inner Counsel": "./assets/seal-inner-counsel.png",
-  Knights: "./assets/seal-knights.png",
-  Nobles: "./assets/seal-nobles.png",
-  "Noble Fading": "./assets/seal-noble-fading.png",
-  Courtiers: "./assets/seal-courtiers.png",
-  Villagers: "./assets/seal-villagers.png",
-  "The Hold": "./assets/seal-unmapped.png",
-  "Out of Kingdom": "./assets/seal-unmapped.png"
+  "": "./assets/disc-unmapped.png",
+  "Inner Counsel": "./assets/disc-inner-counsel.png",
+  Knights: "./assets/disc-knights.png",
+  Nobles: "./assets/disc-nobles.png",
+  "Noble Fading": "./assets/disc-noble-fading.png",
+  Courtiers: "./assets/disc-courtiers.png",
+  Villagers: "./assets/disc-villagers.png",
+  "The Hold": "./assets/map-node-hold.png",
+  "Out of Kingdom": "./assets/disc-unmapped.png"
 };
 
 const sampleNames = [
@@ -81,6 +81,8 @@ let activeCensusId = null;
 let censusDrag = null;
 let nameMode = state.settings?.shareMode ? "alias" : "real";
 let selectedSphereId = null;
+let selectedMapNodeId = null;
+let holdOverlayOpen = false;
 let activeProfileId = null;
 let activeProfileReturnRoute = "architect";
 let currentRoute = "activation";
@@ -598,12 +600,12 @@ function playActivationTrailer() {
   video.playbackRate = 1;
   video.onended = () => {
     activation.classList.add("activation-complete");
-    window.setTimeout(() => setRoute("census", false, { facilitatorBypass: true }), 460);
+    window.setTimeout(() => setRoute(currentActiveStage(), false), 460);
   };
 
   const playPromise = video.play();
   if (playPromise) {
-    playPromise.catch(() => setRoute("census", false, { facilitatorBypass: true }));
+    playPromise.catch(() => setRoute(currentActiveStage(), false));
   }
 }
 
@@ -637,10 +639,12 @@ function placementSealFor(contact) {
 }
 
 function placementSealForPlacement(contact, placement) {
-  if (placement === "Knights" && contact?.knightStatus === "Rising") return "./assets/seal-knight-rising.png";
-  if (placement === "Nobles" && contact?.nobleStatus === "Legacy") return "./assets/seal-noble-legacy.png";
-  if (placement === "The Hold") return placementSealAssets[""];
-  return placementSealAssets[placement || ""] || placementSealAssets[""];
+  if (placement === "Knights" && contact?.knightStatus === "Rising") return "./assets/map-node-rising.png";
+  if (placement === "Nobles" && contact?.nobleStatus === "Legacy") return "./assets/map-node-legacy.png";
+  if (placement === "Noble Fading") return "./assets/map-node-fading.png";
+  if (placement === "The Hold") return "./assets/map-node-hold.png";
+  if (!placement || placement === "Out of Kingdom" || placement === "Courtiers" || placement === "Villagers") return "./assets/map-node-potential.png";
+  return "./assets/map-node-active.png";
 }
 
 function placementSealMarkup(contact, className = "mini-seal") {
@@ -1100,9 +1104,9 @@ function renderProfile() {
   if (!shell) return;
 
   const contact = state.contacts.find((item) => item.id === activeProfileId);
-  const returnRoute = activeProfileReturnRoute === "mechanic" ? "mechanic" : "architect";
-  const returnLabel = returnRoute === "mechanic" ? "Back to The Mechanics" : "Back to Architect Lens";
-  const profilePlacements = returnRoute === "mechanic" ? mechanicPlacements : architectPlacements;
+  const returnRoute = ["mechanic", "map-lab"].includes(activeProfileReturnRoute) ? activeProfileReturnRoute : "architect";
+  const returnLabel = returnRoute === "map-lab" ? "Back to Living Map" : returnRoute === "mechanic" ? "Back to The Mechanics" : "Back to Architect Lens";
+  const profilePlacements = returnRoute === "architect" ? architectPlacements : mechanicPlacements;
   if (!contact) {
     shell.innerHTML = `
       <div class="panel profile-panel">
@@ -1188,7 +1192,7 @@ function renderProfile() {
             </select>
           </label>
         ` : ""}
-        ${returnRoute === "mechanic" && contact.placement === "Nobles" ? `
+        ${returnRoute !== "architect" && contact.placement === "Nobles" ? `
           <label>
             <span>Noble Status</span>
             <select data-profile="${contact.id}" data-field="nobleStatus">
@@ -1252,6 +1256,159 @@ function renderMechanic() {
   }).join("");
 }
 
+const livingMapLayout = {
+  "": { label: "Potential", radius: 8.4, offset: -90, className: "node-potential" },
+  "Inner Counsel": { label: "Inner Counsel", radius: 8.4, offset: -90, className: "node-inner" },
+  Knights: { label: "Knights", radius: 11.4, offset: -72, className: "node-knight" },
+  Nobles: { label: "Nobles", radius: 14.6, offset: -54, className: "node-noble" },
+  "Noble Fading": { label: "Noble Fading", radius: 14.6, offset: -36, className: "node-fading" },
+  Courtiers: { label: "Courtiers", radius: 19, offset: -18, className: "node-courtier" },
+  Villagers: { label: "Villagers", radius: 34.4, offset: 0, className: "node-villager" },
+  "The Hold": { label: "The Hold", radius: 39.2, offset: 18, className: "node-hold" },
+  "Out of Kingdom": { label: "Out of Kingdom", radius: 45.8, offset: 36, className: "node-out" }
+};
+
+function renderLivingMap() {
+  const nodeLayer = document.querySelector("#living-map-nodes");
+  const selectionPanel = document.querySelector("#map-selection-panel");
+  const holdOverlay = document.querySelector("#hold-overlay");
+  const holdCount = document.querySelector("#hold-map-count");
+  const mapStage = document.querySelector(".premium-map-stage");
+  if (!nodeLayer || !selectionPanel) return;
+
+  const visibleContacts = kingdomContacts();
+  const livingMapTestPlacements = ["Inner Counsel", "Knights", "Nobles", "Noble Fading", "Courtiers"];
+  const mapContacts = visibleContacts.filter((contact) => livingMapTestPlacements.includes(contact.placement || ""));
+  const holdContacts = sortPlacementPeople(visibleContacts.filter((contact) => (contact.placement || "") === "The Hold"), "The Hold");
+  const contactsByPlacement = livingMapTestPlacements.map((placement) => {
+    const people = sortPlacementPeople(visibleContacts.filter((contact) => (contact.placement || "") === placement), placement);
+    return { placement, people };
+  });
+
+  const activeContactExists = selectedMapNodeId && mapContacts.some((contact) => contact.id === selectedMapNodeId);
+  if (!activeContactExists) selectedMapNodeId = null;
+
+  nodeLayer.innerHTML = contactsByPlacement
+    .flatMap(({ placement, people }) => people.map((contact, index) => livingMapNodeMarkup(contact, placement, index, people.length)))
+    .join("") || `<div class="map-empty-state">Place people in Inner Counsel, Knights, Nobles or Courtiers to test the first Living Map rings.</div>`;
+
+  renderMapSelectionPanel(selectionPanel, mapContacts.find((contact) => contact.id === selectedMapNodeId));
+  renderHoldOverlay(holdOverlay, holdContacts);
+  if (holdCount) holdCount.textContent = holdContacts.length;
+  if (mapStage) mapStage.classList.toggle("hold-open", holdOverlayOpen);
+}
+
+function livingMapNodeMarkup(contact, placement, index, total) {
+  const layout = livingMapLayout[placement] || livingMapLayout[""];
+  const point = livingMapPoint(layout, index, total);
+  const nodeClass = livingMapNodeClass(contact, layout.className);
+  const name = displayName(contact);
+  const label = placement ? layout.label : "Potential";
+  const sizeClass = "map-node-counsel-test";
+  const activeClass = contact.id === selectedMapNodeId ? "active" : "";
+  const nodeImage = livingMapNodeImage(contact, placement);
+
+  return `
+    <button class="map-node ${nodeClass} ${sizeClass} ${activeClass}" type="button" data-map-node="${contact.id}" style="left: ${point.x}%; top: ${point.y}%;" aria-label="${escapeAttribute(`${name}, ${label}`)}">
+      <img src="${nodeImage}" alt="" />
+      <span>${escapeHtml(name)}</span>
+    </button>
+  `;
+}
+
+function livingMapNodeImage(contact, placement) {
+  if (!placement || placement === "Out of Kingdom") return "./assets/map-node-potential.png";
+  if (placement === "Courtiers") return "./assets/map-node-potential.png";
+  if (placement === "Noble Fading") return "./assets/map-node-fading.png";
+  if (contact.placement === "Knights" && (contact.knightStatus === "Rising" || isRisingMapTestContact(contact))) return "./assets/map-node-rising.png";
+  if (contact.placement === "Nobles" && contact.nobleStatus === "Legacy") return "./assets/map-node-legacy.png";
+  return "./assets/map-node-active.png";
+}
+
+function isRisingMapTestContact(contact) {
+  const name = displayName(contact).toLowerCase();
+  return name.includes("carrie lloyd") || name.includes("sarah");
+}
+
+function livingMapPoint(layout, index, total) {
+  const count = Math.max(total, 1);
+  const angle = count === 1 ? -90 : layout.offset + (360 / count) * index;
+  const radians = (angle * Math.PI) / 180;
+  return {
+    x: Number((50 + Math.cos(radians) * layout.radius).toFixed(2)),
+    y: Number((50 + Math.sin(radians) * layout.radius).toFixed(2))
+  };
+}
+
+function livingMapNodeClass(contact, baseClass) {
+  const classes = [baseClass];
+  if (contact.placement === "Knights" && (contact.knightStatus === "Rising" || isRisingMapTestContact(contact))) classes.push("node-rising");
+  if (contact.placement === "Nobles" && contact.nobleStatus === "Legacy") classes.push("node-legacy");
+  if (contact.placement === "The Hold") classes.push("node-hold");
+  return classes.join(" ");
+}
+
+function renderMapSelectionPanel(panel, contact) {
+  if (!contact) {
+    panel.hidden = true;
+    panel.innerHTML = "";
+    return;
+  }
+
+  panel.hidden = false;
+  const placement = contact.placement || "Potential";
+  const details = [placement, contact.energeticOrientation, contact.currentStatus].filter(Boolean).join(" · ");
+  const nodeImage = livingMapNodeImage(contact, contact.placement || "");
+  panel.innerHTML = `
+    <button class="map-selection-close" type="button" data-clear-map-selection aria-label="Close profile preview">Close</button>
+    <img class="map-selection-orb" src="${nodeImage}" alt="" />
+    <div class="map-selection-copy">
+      <h3>${escapeHtml(displayName(contact))}</h3>
+      <span>${escapeHtml(details || "No details added")}</span>
+      <button class="map-profile-link" type="button" data-open-profile="${contact.id}">Open Profile</button>
+    </div>
+  `;
+}
+
+function setHoldOverlayOpen(isOpen) {
+  holdOverlayOpen = isOpen;
+  renderLivingMap();
+}
+
+function renderHoldOverlay(overlay, people) {
+  if (!overlay) return;
+  overlay.hidden = !holdOverlayOpen;
+  if (!holdOverlayOpen) {
+    overlay.innerHTML = "";
+    return;
+  }
+
+  overlay.innerHTML = `
+    <div class="hold-overlay-backdrop" data-close-hold></div>
+    <section class="hold-ribbon" role="dialog" aria-modal="true" aria-label="The Hold">
+      <button class="hold-close" type="button" data-close-hold aria-label="Return to the Living Map">Return to Map</button>
+      <div class="hold-ribbon-copy">
+        <p class="eyebrow">The Hold</p>
+        <h3>Relationships held outside final placement.</h3>
+        <span>${people.length} relationship${people.length === 1 ? "" : "s"} waiting for clearer signal.</span>
+      </div>
+      <div class="hold-person-row">
+        ${people.length ? people.map(holdPersonMarkup).join("") : `<div class="hold-empty">No one is currently in The Hold.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+function holdPersonMarkup(contact) {
+  const name = displayName(contact);
+  return `
+    <button class="hold-person" type="button" data-open-profile="${contact.id}" aria-label="${escapeAttribute(`Open ${name}`)}">
+      <img src="./assets/map-node-hold.png" alt="" />
+      <span>${escapeHtml(name)}</span>
+    </button>
+  `;
+}
+
 function renderImportPreview() {
   const count = pendingImport.length;
   document.querySelector("#import-preview-title").textContent = `${count} contact${count === 1 ? "" : "s"} detected`;
@@ -1301,6 +1458,7 @@ function renderAll() {
   renderArchitect();
   renderArchitectComplete();
   renderMechanic();
+  renderLivingMap();
   renderProfile();
   renderFacilitatorDebug();
 }
@@ -1637,6 +1795,47 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const mapNode = event.target.closest("[data-map-node]");
+  if (mapNode) {
+    selectedMapNodeId = mapNode.dataset.mapNode;
+    renderLivingMap();
+    return;
+  }
+
+  const openHold = event.target.closest("[data-open-hold]");
+  if (openHold) {
+    setHoldOverlayOpen(true);
+    return;
+  }
+
+  const closeHold = event.target.closest("[data-close-hold]");
+  if (closeHold) {
+    setHoldOverlayOpen(false);
+    return;
+  }
+
+  const clearMapSelection = event.target.closest("[data-clear-map-selection]");
+  if (clearMapSelection) {
+    selectedMapNodeId = null;
+    renderLivingMap();
+    return;
+  }
+
+  const mapStage = event.target.closest(".premium-map-stage");
+  if (
+    currentRoute === "map-lab" &&
+    mapStage &&
+    selectedMapNodeId &&
+    !event.target.closest("[data-map-node]") &&
+    !event.target.closest("#map-selection-panel") &&
+    !event.target.closest(".map-node-key") &&
+    !event.target.closest("#hold-overlay")
+  ) {
+    selectedMapNodeId = null;
+    renderLivingMap();
+    return;
+  }
+
   const routeButton = event.target.closest("[data-route]");
   if (routeButton) {
     setRoute(routeButton.dataset.route, true, { facilitatorBypass: isFacilitatorMode() });
@@ -1646,7 +1845,8 @@ document.addEventListener("click", (event) => {
   const openProfile = event.target.closest("[data-open-profile]");
   if (openProfile) {
     activeProfileId = openProfile.dataset.openProfile;
-    activeProfileReturnRoute = currentRoute === "mechanic" ? "mechanic" : "architect";
+    activeProfileReturnRoute = currentRoute === "map-lab" ? "map-lab" : currentRoute === "mechanic" ? "mechanic" : "architect";
+    holdOverlayOpen = false;
     setRoute("person-profile");
     return;
   }
@@ -1657,7 +1857,7 @@ document.addEventListener("click", (event) => {
     state.censusHistory = state.censusHistory.filter((id) => id !== deleteProfile.dataset.deleteProfile);
     activeProfileId = null;
     saveAndRender();
-    setRoute(activeProfileReturnRoute === "mechanic" ? "mechanic" : "architect");
+    setRoute(["mechanic", "map-lab"].includes(activeProfileReturnRoute) ? activeProfileReturnRoute : "architect");
     return;
   }
 

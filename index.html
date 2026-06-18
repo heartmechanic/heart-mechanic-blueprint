@@ -7,13 +7,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css?v=20260616-map-logo-clear" />
+    <link rel="stylesheet" href="./styles.css?v=20260618-client-mode" />
   </head>
   <body>
     <div class="shell">
       <header class="topbar" aria-label="Main navigation">
         <button class="brand" data-route="welcome" aria-label="The Heart Mechanic Blueprint home">
-          <img src="./assets/heart-mechanic-logo.png" alt="By Mechanics of You" />
+          <img class="brand-combined-logo" src="./assets/heart-mechanic-combined-logo.png" alt="By Mechanics of You" />
         </button>
         <nav class="facilitator-jump" data-facilitator-tools hidden aria-label="Facilitator week jumps">
           <span>Facilitator</span>
@@ -25,17 +25,7 @@
           <button type="button" data-facilitator-route="map-lab" onclick="window.hmFacilitatorJump?.('map-lab'); return false;">Living Map</button>
           <button type="button" data-toggle-facilitator onclick="window.hmFacilitatorToggle?.(); return false;">Exit</button>
         </nav>
-        <details class="neutral-out">
-          <summary>Facilitator</summary>
-          <div>
-            <a href="#census">Week 1</a>
-            <a href="#foundation">Week 2</a>
-            <a href="#architect">Week 3</a>
-            <a href="#mechanic">Week 4</a>
-            <a href="#locked">Future</a>
-            <a href="#map-lab">Living Map</a>
-          </div>
-        </details>
+        <button class="facilitator-access" type="button" data-toggle-facilitator onclick="window.hmFacilitatorToggle?.(); return false;">Facilitator Mode</button>
         <button id="top-back" class="top-back" type="button" hidden>Back</button>
       </header>
       <aside id="facilitator-debug" class="facilitator-debug" hidden aria-label="Facilitator state"></aside>
@@ -61,7 +51,7 @@
             <div class="hero-actions">
               <button id="current-stage-button" class="primary-action" type="button" data-current-stage>Activate Mirror Lens</button>
             </div>
-            <details class="preview-tools">
+            <details class="preview-tools facilitator-only" hidden>
               <summary>Preview tools</summary>
               <div>
                 <button class="secondary-action compact-action" data-route="design-lab">Column Design</button>
@@ -483,63 +473,35 @@
           <div class="map-reveal-content">
             <div class="premium-map-stage">
               <img class="premium-map-base" src="./assets/map-view-premium.jpg" alt="" />
-              <button class="map-node marker-inner active" type="button" aria-label="Aldebaran, Inner Counsel">
-                <img src="./assets/glass-node.png" alt="" />
-                <span>Aldebaran</span>
-              </button>
-              <button class="map-node marker-knight node-rising" type="button" aria-label="Mira, Knight Rising">
-                <img src="./assets/glass-node.png" alt="" />
-                <span>Mira</span>
-              </button>
-              <button class="map-node marker-noble node-legacy" type="button" aria-label="Europa, Noble Legacy">
-                <img src="./assets/glass-node.png" alt="" />
-                <span>Europa</span>
-              </button>
-              <button class="map-node marker-fading node-fading" type="button" aria-label="Saturn, Noble Fading">
-                <img src="./assets/glass-node-fading.png" alt="" />
-                <span>Saturn</span>
-              </button>
-              <button class="map-node marker-courtier" type="button" aria-label="Deneb, Courtier">
-                <img src="./assets/glass-node.png" alt="" />
-                <span>Deneb</span>
-              </button>
-              <button class="map-node marker-villager node-villager" type="button" aria-label="Lo, Villager">
-                <img src="./assets/glass-node.png" alt="" />
-                <span>Lo</span>
-              </button>
-              <button class="map-node marker-hold node-hold" type="button" aria-label="Mercury, The Hold">
-                <img src="./assets/glass-node.png" alt="" />
-                <span>Mercury</span>
-              </button>
-              <button class="map-node marker-out node-out" type="button" aria-label="Neptune, Out of Kingdom">
-                <img src="./assets/glass-node.png" alt="" />
-                <span>Neptune</span>
-              </button>
-              <aside class="map-selection-panel">
-                <img src="./assets/seal-inner-counsel.png" alt="" />
-                <div>
-                  <p class="eyebrow">Selected Node</p>
-                  <h3>Aldebaran</h3>
-                  <span>Inner Counsel · Grounded · Active</span>
-                </div>
-              </aside>
+              <div id="living-map-nodes" class="living-map-nodes" aria-label="Placed relationship nodes"></div>
+              <aside id="map-selection-panel" class="map-selection-panel" hidden></aside>
+              <div id="hold-overlay" class="hold-overlay" hidden></div>
               <aside class="map-node-key" aria-label="Map node language">
                 <div>
-                  <img class="node-key-dot" src="./assets/glass-node.png" alt="" />
-                  <span>Present</span>
+                  <img class="node-key-dot" src="./assets/map-node-potential.png" alt="" />
+                  <span>Potential</span>
                 </div>
                 <div>
-                  <img class="node-key-dot key-rising" src="./assets/glass-node.png" alt="" />
+                  <img class="node-key-dot" src="./assets/map-node-rising.png" alt="" />
                   <span>Rising</span>
                 </div>
                 <div>
-                  <img class="node-key-dot key-charged" src="./assets/glass-node.png" alt="" />
-                  <span>Charged</span>
+                  <img class="node-key-dot" src="./assets/map-node-active.png" alt="" />
+                  <span>Active</span>
                 </div>
                 <div>
-                  <img class="node-key-dot key-fading" src="./assets/glass-node-fading.png" alt="" />
+                  <img class="node-key-dot" src="./assets/map-node-fading.png" alt="" />
                   <span>Fading</span>
                 </div>
+                <div>
+                  <img class="node-key-dot" src="./assets/map-node-legacy.png" alt="" />
+                  <span>Legacy</span>
+                </div>
+                <button class="node-key-action hold-key-action" type="button" data-open-hold>
+                  <img class="node-key-dot hold-key-dot" src="./assets/map-node-hold.png" alt="" />
+                  <span>Hold</span>
+                  <strong id="hold-map-count">0</strong>
+                </button>
               </aside>
             </div>
 
@@ -648,6 +610,6 @@
         return true;
       };
     </script>
-    <script src="./app.js?v=20260616-map-logo-clear"></script>
+    <script src="./app.js?v=20260618-client-mode"></script>
   </body>
 </html>
